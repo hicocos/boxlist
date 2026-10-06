@@ -1,0 +1,186 @@
+.image-lite {
+  width: 100%;
+  min-width: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--hope-colors-neutral2, #f5f6f8);
+}
+.image-lite-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 8px;
+}
+.image-lite-toolbar button {
+  flex: 0 0 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #52718f;
+  box-shadow: none;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+.image-lite-toolbar button:not(:disabled):hover {
+  background: rgb(82 113 143 / 8%);
+  box-shadow: none;
+}
+.image-lite-toolbar button:not(:disabled):active {
+  background: rgb(82 113 143 / 14%);
+}
+.image-lite-toolbar button:disabled {
+  opacity: 0.35;
+  box-shadow: none;
+  cursor: default;
+}
+.image-lite-toolbar button:focus-visible,
+.image-lite-stage:focus-visible {
+  outline: 2px solid #1890ff;
+  outline-offset: -2px;
+}
+.image-lite-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.image-lite-counter {
+  flex-shrink: 0;
+  font-size: 12px;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+.image-lite-stage {
+  display: block;
+  position: relative;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: zoom-in;
+  min-height: 100px;
+}
+.image-lite-stage img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 70vh;
+  max-height: 70dvh;
+  object-fit: contain;
+  margin: 0 auto;
+  user-select: none;
+}
+.image-lite-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  font-size: 14px;
+}
+.image-lite-hint {
+  padding: 10px;
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.65;
+}
+.image-lite-error {
+  padding: 16px;
+  text-align: center;
+}
+.image-lite-error button,
+.image-lite-error a {
+  margin-left: 12px;
+  color: #1890ff;
+  cursor: pointer;
+}
+.openlist-image-lite-dialog {
+  z-index: 20000;
+  --pswp-bg: #101318;
+  --pswp-icon-size: 26px;
+  --pswp-icon-stroke-width: 1px;
+}
+.openlist-image-lite-dialog .pswp__top-bar {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.openlist-image-lite-dialog .pswp__button--arrow {
+  display: block !important;
+  visibility: visible !important;
+  margin-top: -22px;
+  width: 44px;
+  height: 44px;
+  background: rgb(255 255 255 / 8%);
+  border: 0;
+  border-radius: 50%;
+  box-shadow: none;
+}
+.openlist-image-lite-dialog .pswp__button--arrow .pswp__icn {
+  width: 22px;
+  height: 22px;
+  margin-top: 0;
+  left: 11px;
+  top: 11px;
+}
+.openlist-image-lite-dialog .pswp__button--arrow--next .pswp__icn {
+  right: 11px;
+  left: auto;
+}
+.openlist-image-lite-dialog .pswp__button--arrow:disabled {
+  display: none !important;
+}
+.openlist-image-lite-dialog .image-lite-slide-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #eee;
+  font-size: 14px;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  box-sizing: border-box;
+  text-align: center;
+}
+.openlist-image-lite-dialog .image-lite-slide-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+.openlist-image-lite-dialog .image-lite-slide-actions button,
+.openlist-image-lite-dialog .image-lite-slide-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  color: #fff;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.openlist-image-lite-dialog .image-lite-slide-actions :focus-visible {
+  outline: 2px solid #1890ff;
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .openlist-image-lite-dialog * {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
+}

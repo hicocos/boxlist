@@ -1,0 +1,29 @@
+.back-top-button {
+  position: fixed;
+  z-index: var(--hope-zIndices-overlay, 1300);
+  right: max(20px, env(safe-area-inset-right, 0px));
+  top: env(safe-area-inset-top, 0px);
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--hope-colors-neutral6, #ddd);
+  border-radius: 0 0 50% 50%;
+  background: var(--hope-colors-background, white);
+  box-shadow: 0 3px 10px #0002;
+  cursor: pointer;
+}
+.back-top-button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+.back-top-button:hover {
+  background: var(--hope-colors-neutral3, #f5f5f5);
+}
+html.openlist-glass-home .back-top-button {
+  color: var(--glass-link) !important;
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-filter);
+}

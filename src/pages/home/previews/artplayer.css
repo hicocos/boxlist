@@ -1,0 +1,126 @@
+/* Keep responsive styles with the root Artplayer reparents in fullscreen. */
+.art-video-player.openlist-video-player {
+  container: openlist-video / inline-size;
+}
+
+.art-video-player.openlist-video-player:not(.art-fullscreen):not(
+    .art-fullscreen-web
+  )
+  .art-controls
+  .art-control-time {
+  display: flex;
+  flex: 0 0 auto;
+  padding-inline: 6px !important;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  opacity: 1;
+}
+
+@container openlist-video (max-width: 700px) {
+  /* Inline controls stay on ONE row, never lift the seek bar into the picture. */
+  .art-video-player.openlist-video-player:not(.art-fullscreen):not(
+      .art-fullscreen-web
+    )
+    .art-controls {
+    height: 40px;
+    min-height: 40px;
+    flex-wrap: nowrap;
+  }
+
+  .art-video-player.openlist-video-player:not(.art-fullscreen):not(
+      .art-fullscreen-web
+    )
+    .art-controls
+    :is(.art-controls-left, .art-controls-right) {
+    height: 40px;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    margin-inline: 0;
+  }
+
+  .art-video-player.openlist-video-player:not(.art-fullscreen):not(
+      .art-fullscreen-web
+    )
+    .art-controls
+    :is(
+      .art-control-previous-button,
+      .art-control-next-button,
+      .art-control-screenshot,
+      .art-control-airplay,
+      .art-control-fullscreenWeb
+    ) {
+    display: none;
+  }
+
+  .art-video-player.openlist-video-player:not(.art-fullscreen):not(
+      .art-fullscreen-web
+    )
+    .art-controls
+    .art-control {
+    min-width: 36px;
+    min-height: 40px;
+  }
+
+  .art-video-player.openlist-video-player:not(.art-fullscreen):not(
+      .art-fullscreen-web
+    )
+    .art-controls
+    .art-control
+    .art-icon {
+    width: 28px;
+    height: 28px;
+    transform: scale(1);
+  }
+
+  .art-video-player.openlist-video-player:not(.art-fullscreen):not(
+      .art-fullscreen-web
+    )
+    .art-controls
+    .art-control-time {
+    font-size: 11px !important;
+    padding-inline: 2px !important;
+  }
+
+  /* The toolbar already has play; do not stack a second play target over it. */
+  .art-video-player.openlist-video-player:not(.art-fullscreen):not(
+      .art-fullscreen-web
+    ).art-control-show
+    .art-mask
+    .art-state {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+@container openlist-video (max-width: 400px) {
+  .art-video-player.openlist-video-player:not(.art-fullscreen):not(
+      .art-fullscreen-web
+    )
+    .art-controls
+    .art-controls-left {
+    margin-left: -6px;
+  }
+  .art-video-player.openlist-video-player:not(.art-fullscreen):not(
+      .art-fullscreen-web
+    )
+    .art-controls
+    .art-controls-right {
+    margin-right: -6px;
+  }
+  .art-video-player.openlist-video-player:not(.art-fullscreen):not(
+      .art-fullscreen-web
+    )
+    .art-controls
+    .art-control {
+    min-width: 32px;
+  }
+
+  /* Phone hardware volume remains available; preserve PiP and both timestamps. */
+  .art-video-player.openlist-video-player:not(.art-fullscreen):not(
+      .art-fullscreen-web
+    )
+    .art-controls
+    .art-control-volume {
+    display: none;
+  }
+}

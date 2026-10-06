@@ -1,0 +1,57 @@
+/* Folder lightGallery only; file-page PhotoSwipe is a separate viewer. */
+.openlist-folder-gallery .lg-toolbar {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: max(4px, env(safe-area-inset-right, 0px));
+  padding-left: max(4px, env(safe-area-inset-left, 0px));
+}
+
+/* Keep close and the retained controls available when items auto-hide. */
+.openlist-folder-gallery.lg-hide-items .lg-toolbar {
+  opacity: 1;
+  transform: none;
+}
+
+.openlist-folder-gallery .lg-toolbar .lg-counter {
+  order: 0;
+  float: none;
+  flex: 1;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.openlist-folder-gallery .lg-toolbar .lg-close {
+  order: 2;
+  float: none;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  font-size: 32px;
+  line-height: 1;
+}
+
+.openlist-folder-gallery .lg-toolbar > .lg-icon:not(.lg-close) {
+  order: 1;
+  float: none;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 48px;
+  padding-inline: 0;
+}
+
+/* A text glyph doesn't depend on downloading the icon font. */
+.openlist-folder-gallery .lg-close::after {
+  content: "×";
+}
+
+.openlist-folder-gallery .lg-close:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -6px;
+}

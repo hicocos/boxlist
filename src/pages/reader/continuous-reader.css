@@ -1,0 +1,144 @@
+.continuous-reader {
+  width: 100%;
+  min-width: 0;
+  margin-inline: auto;
+  /* Only this subtree opts out: geometry is anchored explicitly on reflow. */
+  overflow-anchor: none;
+}
+
+.continuous-reader .continuous-reader__stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  max-width: 1100px;
+  margin-inline: auto;
+  min-width: 0;
+}
+
+.continuous-reader .continuous-reader__panel {
+  position: relative;
+  flex: none;
+  width: 100%;
+  min-width: 0;
+  /* Explicit heights are set before image src is assigned. */
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  box-sizing: border-box;
+}
+
+.continuous-reader .continuous-reader__image-host {
+  height: 100%;
+  max-width: 100%;
+  margin-inline: auto;
+}
+
+.continuous-reader .continuous-reader__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  /* The host is narrowed for extremely tall images; do not distort them. */
+  object-fit: contain;
+}
+
+.continuous-reader .continuous-reader__placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  box-sizing: border-box;
+  background: rgb(127 127 127 / 8%);
+  color: inherit;
+  overflow: clip;
+}
+
+.continuous-reader .continuous-reader__placeholder-content {
+  position: sticky;
+  top: 20vh;
+  max-width: min(90%, 36rem);
+  padding: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.continuous-reader .continuous-reader__name {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.continuous-reader .continuous-reader__navigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  max-width: 1100px;
+  margin-inline: auto;
+  padding: 0.75rem 0.25rem;
+  font-size: 0.875rem;
+}
+
+.continuous-reader .continuous-reader__range {
+  flex: 1 1 auto;
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.continuous-reader .continuous-reader__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.continuous-reader button {
+  min-height: 44px;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid rgb(127 127 127 / 40%);
+  border-radius: 0.4rem;
+  color: inherit;
+  background: rgb(127 127 127 / 10%);
+  font: inherit;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.continuous-reader button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.continuous-reader button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.continuous-reader .continuous-reader__empty {
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+@media (max-width: 400px) {
+  .continuous-reader .continuous-reader__navigation {
+    gap: 0.25rem;
+    font-size: 0.75rem;
+  }
+
+  .continuous-reader .continuous-reader__navigation button {
+    padding-inline: 0.5rem;
+  }
+}

@@ -1,0 +1,5 @@
+/* Keyboard affordance only; no persistent controls over a loaded comic. */
+.continuous-reader .continuous-reader__image:focus-visible {
+  outline: 3px solid var(--hope-colors-primary9, #1890ff);
+  outline-offset: -3px;
+}

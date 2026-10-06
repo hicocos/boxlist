@@ -1,0 +1,669 @@
+/* Home/login only. The route marker deliberately excludes /@manage.
+ * Alpha controls affect backgrounds, never the opacity of content.
+ * Import after index.css; every managed variable has a standalone fallback.
+ */
+html.openlist-glass-home {
+  --glass-accent: 139, 92, 246;
+  --glass-rgb: 255, 255, 255;
+  --glass-bg: rgba(var(--glass-rgb), var(--home-glass-alpha, 0.4));
+  --glass-bg-hover: rgba(var(--glass-rgb), var(--home-glass-hover-alpha, 0.7));
+  /* All glass effects follow the same continuous opacity, including 99→100.
+   * No endpoint class or filter:none switch that changes compositing abruptly.
+   */
+  --glass-strength: var(--home-glass-alpha, 0.4);
+  --glass-border: rgba(255, 255, 255, calc(0.12 * var(--glass-strength)));
+  --glass-blur-max: 20px;
+  --glass-blur: calc(var(--glass-blur-max) * var(--glass-strength));
+  --glass-filter: blur(var(--glass-blur))
+    saturate(calc(1 + 0.4 * var(--glass-strength)));
+  --glass-text: #242532;
+  --glass-muted: #555665;
+  --glass-link: #7950c5;
+  --glass-link-hover: #6334b5;
+  --glass-field: rgba(255, 255, 255, 0.14);
+  --glass-code: rgba(0, 0, 0, 0.25);
+  --glass-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, calc(0.35 * var(--glass-strength))),
+    inset -1px -1px 0 rgba(255, 255, 255, calc(0.15 * var(--glass-strength))),
+    0 8px 32px rgba(0, 0, 0, calc(0.15 * var(--glass-strength)));
+  --glass-shadow-hover:
+    inset 1px 1px 0 rgba(255, 255, 255, calc(0.45 * var(--glass-strength))),
+    inset -1px -1px 0 rgba(255, 255, 255, calc(0.2 * var(--glass-strength))),
+    0 12px 40px rgba(0, 0, 0, calc(0.2 * var(--glass-strength)));
+  scrollbar-color: rgba(var(--glass-accent), 0.3) transparent;
+  scrollbar-width: thin;
+}
+
+/* Hope can mount the mode class on html or an ancestor of its portals. */
+html.openlist-glass-home.hope-ui-dark,
+html.openlist-glass-home .hope-ui-dark {
+  --glass-rgb: 18, 20, 32;
+  --glass-bg: rgba(var(--glass-rgb), var(--home-glass-alpha, 0.4));
+  --glass-bg-hover: rgba(var(--glass-rgb), var(--home-glass-hover-alpha, 0.7));
+  --glass-text: #f0eef8;
+  --glass-link: #bba4ef;
+  --glass-link-hover: #d3c3f5;
+  --glass-muted: #c3c0d2;
+  --glass-border: rgba(255, 255, 255, calc(0.16 * var(--glass-strength)));
+  --glass-field: rgba(0, 0, 0, 0.18);
+  --glass-code: rgba(0, 0, 0, 0.25);
+  --glass-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, calc(0.2 * var(--glass-strength))),
+    inset -1px -1px 0 rgba(255, 255, 255, calc(0.08 * var(--glass-strength))),
+    0 8px 32px rgba(0, 0, 0, calc(0.3 * var(--glass-strength)));
+}
+
+html.openlist-glass-home body {
+  /* Keep the image in a fixed layer: mobile browsers handle fixed body
+   * backgrounds inconsistently when the document exceeds one viewport.
+   */
+  isolation: isolate;
+}
+
+.home-background {
+  display: none;
+  pointer-events: none;
+}
+
+/* Keep native document scrolling, pull-to-refresh and theme canvas colors.
+ * Only the wallpaper layer owns the rendering optimizations below. */
+
+html.openlist-glass-home .home-background {
+  position: fixed;
+  top: -32px;
+  left: 0;
+  width: 100%;
+  height: calc(100vh + 64px);
+  /* Large viewport stays stable as mobile browser chrome expands/collapses.
+   * Overscan covers compositor rounding and transient exposed edges. */
+  height: calc(100lvh + 64px);
+  z-index: -1;
+  overflow: hidden;
+  contain: strict;
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.home-background-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+html.openlist-glass-home .header-logo-link {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  border-radius: 6px;
+}
+
+html.openlist-glass-home .header-logo-link:focus-visible {
+  outline: 2px solid rgb(var(--glass-accent));
+  outline-offset: 4px;
+}
+
+html.openlist-glass-home ::selection {
+  background-color: rgba(var(--glass-accent), 0.5);
+  color: #fff;
+}
+
+/* Semantic application classes and the installed Hope component classes.
+ * Structural :has() selectors cover three components lacking their own class:
+ * README cards, the sliding sidebar, and the login card. No build hashes.
+ */
+html.openlist-glass-home
+  :is(
+    .header,
+    .nav,
+    .obj-box,
+    .body > div:has(> .markdown),
+    .body > div:has(> .folder-tree-box),
+    body > div > div:has(> .hope-list),
+    .left-toolbar,
+    .toolbar-toggle,
+    .center-toolbar > div > .hope-stack,
+    .hope-modal__content,
+    .hope-drawer__content,
+    .hope-menu__content,
+    .hope-select__content,
+    .hope-popover__content,
+    .hope-tooltip,
+    .hope-notification,
+    .solid-contextmenu,
+    #root > .hope-center > .hope-stack:has(input[name="username"]),
+    #root > .hope-center > .hope-stack:has(input[name="otp"])
+  ) {
+  background-color: var(--glass-bg) !important;
+  color: var(--glass-text);
+  border: 1px solid var(--glass-border) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--glass-shadow) !important;
+  -webkit-backdrop-filter: var(--glass-filter) !important;
+  backdrop-filter: var(--glass-filter) !important;
+  /* Do not override transition here. Hope's portaled controls depend on
+   * opacity/transform transitionend to remove their exiting DOM nodes.
+   */
+}
+
+/* Keep the full-width sticky header and its 60px layout unchanged. */
+html.openlist-glass-home .header {
+  border-radius: 0 !important;
+  border-width: 0 0 1px !important;
+}
+
+html.openlist-glass-home .nav {
+  border-radius: var(--hope-radii-xl, 12px) !important;
+  padding: var(--hope-space-1, 4px) var(--hope-space-2, 8px);
+}
+
+/* Remove the native opaque sticky breadcrumb mask, not its sticky behavior. */
+html.openlist-glass-home .nav::after {
+  background-color: transparent !important;
+}
+
+html.openlist-glass-home .nav .hope-breadcrumb__list {
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+}
+
+html.openlist-glass-home .nav-item {
+  flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+
+html.openlist-glass-home .nav-link {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  text-overflow: clip;
+  color: var(--glass-text) !important;
+  background-color: transparent !important;
+}
+
+html.openlist-glass-home .nav-link:hover {
+  background-color: var(--glass-bg-hover) !important;
+}
+
+html.openlist-glass-home .nav-separator {
+  flex-shrink: 0;
+  padding: 0 var(--hope-space-1, 4px);
+  color: var(--glass-muted);
+}
+
+/* Header buttons retain compact icons; touch hit areas are owned by their
+ * components. Only paint is shared here, without nested blur.
+ */
+html.openlist-glass-home .header-right .hope-icon-button {
+  color: rgb(var(--glass-accent)) !important;
+  background-color: rgba(var(--glass-accent), 0.2) !important;
+  box-shadow: inset 0 0 0 1px rgba(var(--glass-accent), 0.2);
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+html.openlist-glass-home .header-right .hope-icon-button:hover {
+  background-color: rgba(var(--glass-accent), 0.35) !important;
+}
+
+/* A single glass surface surrounds each listing. Rows/cards never re-blur
+ * the same background; inset outlines do not alter native item dimensions.
+ */
+html.openlist-glass-home :is(.list, .image-folders, .image-images) {
+  background-color: transparent !important;
+}
+
+html.openlist-glass-home :is(.list-item, .grid-item, .image-item) {
+  color: var(--glass-text) !important;
+  background-color: transparent !important;
+  box-shadow: none;
+  transition:
+    transform 0.2s ease,
+    background-color 0.3s ease,
+    box-shadow 0.3s ease !important;
+}
+
+html.openlist-glass-home :is(.grid-item, .image-item) {
+  border-radius: 12px !important;
+  box-shadow: inset 0 0 0 1px var(--glass-border);
+}
+
+html.openlist-glass-home .list-item .name,
+html.openlist-glass-home .grid-item > .hope-text,
+html.openlist-glass-home .hope-modal__body a:has(> .icon) {
+  color: var(--glass-text) !important;
+}
+
+html.openlist-glass-home .hope-modal__body a:has(> .icon) {
+  border-color: var(--glass-border) !important;
+  background-color: transparent !important;
+}
+
+html.openlist-glass-home .hope-modal__body a:has(> .icon):hover {
+  background-color: var(--glass-bg-hover) !important;
+}
+
+html.openlist-glass-home .toolbar-toggle {
+  color: var(--glass-link) !important;
+}
+
+html.openlist-glass-home :is(.size, .modified, .disk-usage-text),
+html.openlist-glass-home .list > .title {
+  color: var(--glass-muted) !important;
+}
+
+html.openlist-glass-home :is(.list-item, .grid-item, .image-item):hover {
+  background-color: var(--glass-bg-hover) !important;
+  box-shadow: inset 0 0 0 1px rgba(var(--glass-accent), 0.25);
+}
+
+html.openlist-glass-home :is(.list-item, .grid-item, .image-item).selected {
+  background-color: rgba(var(--glass-accent), 0.18) !important;
+  box-shadow: inset 0 0 0 1px rgba(var(--glass-accent), 0.5) !important;
+}
+
+html.openlist-glass-home .viselect-selection-area {
+  background-color: rgba(var(--glass-accent), 0.15) !important;
+  border-color: rgba(var(--glass-accent), 0.65) !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  html.openlist-glass-home .list-item:hover {
+    transform: translateX(4px) !important;
+  }
+
+  html.openlist-glass-home .grid-item:hover {
+    transform: translateY(-2px) !important;
+  }
+
+  /* Only the item under the pointer reacts; the listing surface stays still. */
+}
+
+/* Links keep the supplied lavender palette; file labels remain neutral. */
+html.openlist-glass-home
+  :is(
+    .header,
+    .body,
+    .footer,
+    .hope-modal__content,
+    .hope-drawer__content,
+    .hope-popover__content,
+    .hope-notification
+  )
+  a {
+  color: var(--glass-link);
+  transition: color 0.3s ease;
+}
+
+html.openlist-glass-home
+  :is(
+    .header,
+    .body,
+    .footer,
+    .hope-modal__content,
+    .hope-drawer__content,
+    .hope-popover__content,
+    .hope-notification
+  )
+  a:hover {
+  color: var(--glass-link-hover);
+}
+
+/* The sidebar remains slide-in/out; no position/transform/width overrides. */
+html.openlist-glass-home .folder-tree-box {
+  color: var(--glass-text);
+}
+
+html.openlist-glass-home .folder-tree-box .hope-text:hover {
+  background-color: rgba(var(--glass-accent), 0.18) !important;
+}
+
+/* BackTop now uses a native button with its own semantic class. */
+html.openlist-glass-home .back-top-button:hover,
+html.openlist-glass-home .toolbar-toggle:hover {
+  background-color: var(--glass-bg-hover) !important;
+  box-shadow: var(--glass-shadow-hover) !important;
+}
+
+html.openlist-glass-home .left-toolbar .toolbar-action {
+  color: var(--glass-link) !important;
+}
+
+html.openlist-glass-home .left-toolbar .toolbar-action:hover,
+html.openlist-glass-home .center-toolbar .toolbar-action:hover {
+  color: #fff !important;
+  background-color: rgba(var(--glass-accent), 0.45) !important;
+}
+
+html.openlist-glass-home .toolbar-action[data-danger="true"] {
+  color: var(--hope-colors-danger11, #b32828) !important;
+}
+html.openlist-glass-home .toolbar-action[data-danger="true"]:hover {
+  background-color: rgba(210, 60, 60, 0.18) !important;
+}
+
+/* Interactive portals need more contrast than decorative listing surfaces.
+ * Derive their opacity from the existing administrator setting; never change
+ * wallpaper ownership, add a backdrop image or alter the configured variable.
+ */
+html.openlist-glass-home
+  :is(
+    .hope-modal__content,
+    .hope-drawer__content,
+    .hope-menu__content,
+    .hope-select__content,
+    .hope-popover__content,
+    .hope-notification,
+    .solid-contextmenu
+  ) {
+  background-color: rgba(
+    var(--glass-rgb),
+    clamp(0, calc(0.78 + var(--home-glass-alpha, 0.4) * 0.22), 1)
+  ) !important;
+}
+
+/* Hope portals inherit the same palette, including search/local settings. */
+html.openlist-glass-home :is(.hope-modal__overlay, .hope-drawer__overlay) {
+  background-color: rgba(0, 0, 0, 0.45) !important;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+html.openlist-glass-home
+  :is(.hope-modal__header, .hope-modal__body, .hope-modal__footer) {
+  background-color: transparent;
+  color: var(--glass-text);
+}
+
+html.openlist-glass-home
+  :is(
+    .hope-menu__item,
+    .hope-select__option,
+    .solid-contextmenu__item__content
+  ) {
+  color: var(--glass-text) !important;
+  border-radius: 8px;
+}
+
+html.openlist-glass-home
+  :is(.hope-menu__item, .hope-select__option):is(
+    :hover,
+    :focus,
+    [data-highlighted],
+    [data-active]
+  ),
+html.openlist-glass-home .hope-select__option[aria-selected="true"],
+html.openlist-glass-home
+  .solid-contextmenu__item:not(.solid-contextmenu__item--disabled):is(
+    :hover,
+    :focus
+  )
+  > .solid-contextmenu__item__content,
+html.openlist-glass-home
+  .solid-contextmenu__submenu--is-open
+  > .solid-contextmenu__item__content {
+  background-color: rgba(var(--glass-accent), 0.18) !important;
+}
+
+html.openlist-glass-home :is(.solid-contextmenu__separator, .hope-divider) {
+  background-color: var(--glass-border) !important;
+  border-color: var(--glass-border) !important;
+}
+
+html.openlist-glass-home .hope-popover__arrow {
+  background-color: var(--glass-bg) !important;
+}
+
+/* Controls use an inexpensive tint within an already blurred surface. */
+html.openlist-glass-home
+  :is(.hope-input, .hope-textarea, .hope-select__trigger) {
+  color: var(--glass-text) !important;
+  background-color: var(--glass-field) !important;
+  border-color: var(--glass-border) !important;
+}
+
+html.openlist-glass-home :is(.hope-input, .hope-textarea)::placeholder,
+html.openlist-glass-home .hope-select__placeholder {
+  color: var(--glass-muted);
+}
+
+html.openlist-glass-home
+  :is(
+    .obj-box,
+    .hope-modal__content,
+    .hope-drawer__content,
+    #root > .hope-center
+  )
+  :is(.hope-button, .hope-icon-button) {
+  background-color: rgba(var(--glass-accent), 0.2) !important;
+  border-color: rgba(var(--glass-accent), 0.4) !important;
+}
+
+html.openlist-glass-home
+  :is(
+    .obj-box,
+    .hope-modal__content,
+    .hope-drawer__content,
+    #root > .hope-center
+  )
+  :is(.hope-button, .hope-icon-button):hover:not(:disabled) {
+  background-color: rgba(var(--glass-accent), 0.35) !important;
+}
+
+html.openlist-glass-home
+  :is(
+    .hope-tabs__tab[aria-selected="true"],
+    .hope-checkbox__control[data-checked],
+    .hope-switch__control[data-checked]
+  ) {
+  background-color: rgba(var(--glass-accent), 0.4) !important;
+  border-color: rgba(var(--glass-accent), 0.65) !important;
+}
+
+html.openlist-glass-home
+  :is(
+    .header-right .hope-icon-button,
+    .nav-link,
+    .list-item,
+    .grid-item,
+    .hope-input,
+    .hope-textarea,
+    .hope-select__trigger,
+    .hope-menu__item,
+    .hope-button,
+    .hope-icon-button,
+    .toolbar-theme-toggle,
+    .toolbar-action,
+    .back-top-button,
+    .solid-contextmenu__item
+  ):focus-visible {
+  outline: 2px solid rgb(var(--glass-accent)) !important;
+  outline-offset: 2px;
+}
+
+/* Markdown/readme and text previews share the parent glass, never an extra
+ * blur. Preserve syntax highlighting, image pixels and wrapping preference.
+ */
+html.openlist-glass-home .markdown-body {
+  color: var(--glass-text) !important;
+  background-color: transparent !important;
+}
+
+html.openlist-glass-home .markdown-body a {
+  color: var(--glass-link) !important;
+}
+
+html.openlist-glass-home .markdown-body a:hover {
+  color: var(--glass-link-hover) !important;
+}
+
+html.openlist-glass-home .markdown-body :is(pre, .highlight pre) {
+  color: var(--glass-text);
+  background-color: var(--glass-code) !important;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+}
+
+html.openlist-glass-home .markdown-body pre code {
+  background-color: transparent !important;
+}
+
+html.openlist-glass-home .markdown-body :is(table tr, table tr:nth-child(2n)) {
+  color: var(--glass-text);
+  background-color: var(--glass-field) !important;
+}
+
+html.openlist-glass-home .markdown-body :is(th, td, blockquote, h1, h2, hr) {
+  border-color: var(--glass-border) !important;
+}
+
+html.openlist-glass-home .markdown-body blockquote {
+  color: var(--glass-muted) !important;
+  border-left-color: rgba(var(--glass-accent), 0.5) !important;
+}
+
+html.openlist-glass-home .markdown-body img {
+  background-color: transparent !important;
+}
+
+html.openlist-glass-home .fileinfo {
+  color: var(--glass-text);
+}
+
+/* Audio chrome is glass; media/video/document canvases retain their own
+ * rendering. PhotoSwipe and image-lite immersive overlays are not targeted.
+ */
+html.openlist-glass-home #audio-player.aplayer,
+html.openlist-glass-home #audio-player .aplayer-list {
+  color: var(--glass-text) !important;
+  background-color: transparent !important;
+  box-shadow: none;
+}
+
+html.openlist-glass-home #audio-player .aplayer-list li {
+  border-color: var(--glass-border) !important;
+}
+
+html.openlist-glass-home
+  #audio-player
+  .aplayer-list
+  li:is(:hover, .aplayer-list-light) {
+  background-color: var(--glass-bg-hover) !important;
+}
+
+/* Login has no semantic wrapper class; use the actual input names. Hide its
+ * decorative background sibling so the configured home image remains visible.
+ */
+html.openlist-glass-home
+  #root
+  > .hope-center:has(> .hope-stack input:is([name="username"], [name="otp"]))
+  > .hope-stack
+  ~ div {
+  display: none;
+}
+
+html.openlist-glass-home .footer {
+  color: var(--glass-text);
+}
+
+html.openlist-glass-home ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+html.openlist-glass-home ::-webkit-scrollbar-track,
+html.openlist-glass-home ::-webkit-scrollbar-corner {
+  background-color: transparent;
+}
+
+html.openlist-glass-home ::-webkit-scrollbar-thumb {
+  background-color: rgba(var(--glass-accent), 0.3);
+  border-radius: 3px;
+}
+
+html.openlist-glass-home ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(var(--glass-accent), 0.5);
+}
+
+@media (max-width: 640px) {
+  /* Keep every administrator action reachable without a screen-high rail.
+   * The More/close control remains outside the scrollable actions area.
+   */
+  html.openlist-glass-home .left-toolbar-in {
+    max-height: calc(40dvh - 44px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  html.openlist-glass-home .left-toolbar-in > .toolbar-action {
+    flex-shrink: 0;
+  }
+
+  html.openlist-glass-home {
+    --glass-blur-max: 14px;
+  }
+
+  html.openlist-glass-home :is(.list-item, .grid-item):hover {
+    transform: none !important;
+  }
+
+  html.openlist-glass-home .hope-modal__content {
+    max-width: calc(100vw - 16px);
+  }
+
+  html.openlist-glass-home .hope-drawer__content {
+    max-width: 100vw;
+    border-radius: 12px 0 0 12px !important;
+  }
+
+  html.openlist-glass-home .center-toolbar {
+    max-width: calc(100vw - 96px);
+  }
+
+  html.openlist-glass-home .center-toolbar > div > .hope-stack {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  html.openlist-glass-home .center-toolbar .toolbar-action {
+    flex-shrink: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.openlist-glass-home {
+    scroll-behavior: auto;
+  }
+
+  html.openlist-glass-home
+    :is(
+      .list-item,
+      .grid-item,
+      .image-item,
+      .obj-box,
+      .header-right .hope-icon-button,
+      .nav-link,
+      .hope-menu__item,
+      .hope-select__option,
+      .toolbar-toggle,
+      .toolbar-action,
+      .back-top-button,
+      .directory-reader-entry,
+      .directory-gallery-entry
+    ) {
+    transition: none !important;
+  }
+
+  html.openlist-glass-home :is(.list-item, .grid-item):hover {
+    transform: none !important;
+  }
+}

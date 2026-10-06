@@ -1,0 +1,49 @@
+name: Validate and build
+on:
+  push:
+    branches: [main]
+    tags: ['custom-v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.21.0'
+      - name: Install pinned pnpm
+        run: npm install -g pnpm@11.24.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test:ux
+      - run: pnpm run lint
+      - name: Build same-origin frontend
+        run: pnpm run build
+        env:
+          VITE_API_URL: '/'
+      - name: Package compiled frontend
+        run: |
+          mkdir -p artifacts
+          tar -czf artifacts/openlist-frontend-custom.tar.gz -C dist .
+          cd artifacts
+          sha256sum openlist-frontend-custom.tar.gz > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openlist-frontend-custom
+          path: artifacts/
+  icon-service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -r icon-service/requirements.txt
+      - name: Isolated service tests
+        working-directory: icon-service
+        run: python -W error::ResourceWarning -m unittest discover -s tests -v
+        env:
+          OPENLIST_ICON_TEST_SCRATCH: '${{ runner.temp }}/openlist-icon-tests'

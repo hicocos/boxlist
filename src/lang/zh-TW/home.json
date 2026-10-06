@@ -1,0 +1,283 @@
+{
+  "obj": {
+    "name": "名稱",
+    "size": "大小",
+    "modified": "修改時間",
+    "count": {
+      "count": "共有 {{folders}} 個文件夾，{{files}} 個文件",
+      "count_folders": "共有 {{folders}} 個文件夾",
+      "count_files": "共有 {{files}} 個文件",
+      "selected": "已選中 {{folders}} 個文件夾，{{files}} 個文件",
+      "selected_folders": "已選中 {{folders}} 個文件夾",
+      "selected_files": "已選中 {{files}} 個文件"
+    }
+  },
+  "preview": {
+    "download": "下載",
+    "failed_load_img": "圖像加載失敗",
+    "open_with": "用...打開",
+    "play_with": "用...播放",
+    "install": "安裝",
+    "installing": "正在安裝",
+    "tr-install": "TrollStore",
+    "tr-installing": "TrollStore 正在安裝",
+    "open_in_new_window": "在新窗口中打開",
+    "auto_next": "自動下一頁",
+    "fullscreen": "Fullscreen",
+    "fullscreen_failed": "Failed to toggle fullscreen mode",
+    "exit_fullscreen": "Exit fullscreen",
+    "fullview": "Full view",
+    "exit_fullview": "Exit Full view",
+    "auto_fit": "Auto fit",
+    "reset_zoom": "Reset zoom",
+    "names": {
+      "download": "直接下載",
+      "html": "HTML 渲染器",
+      "aliyun_video": "阿里雲視頻播放器",
+      "markdown": "Markdown 渲染器",
+      "flash": "Flash 播放器",
+      "markdown_with_word_wrap": "Markdown 渲染器（帶換行）",
+      "url_open": "打開網址",
+      "text_editor": "文本編輯器",
+      "image_lite": "圖像查看器",
+      "image": "圖像查看器",
+      "video": "視頻播放器",
+      "audio": "音頻播放器",
+      "ipa": "IPA 安裝器",
+      "plist": "Plist 安裝器",
+      "pdf": "PDF 預覽器",
+      "ppt": "PPT 預覽器",
+      "xls": "XLS 預覽器",
+      "doc": "DOC 預覽器",
+      "asciinema": "Asciinema 播放器",
+      "video360": "全景視頻播放器",
+      "archive": "壓縮包預覽器",
+      "torrent": "Torrent 預覽器"
+    }
+  },
+  "layouts": {
+    "list": "列表視圖",
+    "grid": "網格視圖",
+    "image": "圖片視圖"
+  },
+  "no_images": "當前文件夾中沒有圖片",
+  "load_more": "加載更多",
+  "no_more": "沒有更多內容",
+  "input_password": "請輸入密碼",
+  "toolbar": {
+    "more": "更多",
+    "refresh": "刷新",
+    "toggle_theme": "切換白天 / 黑夜模式",
+    "switch_lang": "切換語言",
+    "toggle_markdown_toc": "是否顯示大綱",
+    "toggle_checkbox": "開關複選框",
+    "open_with": "Open with ...",
+    "rename": "重命名",
+    "input_new_name": "輸入新名稱",
+    "move": "移動",
+    "copy": "複製",
+    "choose_dst_folder": "選擇目標文件夾",
+    "delete": "刪除",
+    "delete-tips": "確定要刪除所選對象嗎？",
+    "decompress": "解壓",
+    "decompress-pass": "解壓密碼：",
+    "decompress-cache-full": "緩存完整文件",
+    "decompress-put-into-new": "解壓到新子文件夾",
+    "extract": "解壓到...",
+    "archive": {
+      "input_password": "請輸入解壓密碼",
+      "incorrect_password": "密碼錯誤",
+      "extract_header": "解壓 {{path}} 到..."
+    },
+    "share": "分享",
+    "copy_link": "複製鏈接",
+    "preview_page": "預覽頁面",
+    "down_link": "下載鏈接",
+    "encode_down_link": "編碼下載鏈接",
+    "mkdir": "新建文件夾",
+    "input_dir_name": "輸入文件夾名稱",
+    "new_file": "新建文件",
+    "input_filename": "輸入文件名",
+    "cancel_select": "取消選擇",
+    "offline_download": "離線下載",
+    "offline_download-tips": "每行一條鏈接",
+    "offline_download_torrent": "BT 獲取",
+    "offline_download_enhanced": {
+      "tab_link": "鏈接下載",
+      "tab_bt": "BT 下載",
+      "link_placeholder": "輸入下載鏈接，每行一個\n支持：HTTP/HTTPS、magnet:?、ed2k://",
+      "link_tips": "支持 HTTP/HTTPS URL、磁力鏈接和 ed2k 鏈接。每行一個鏈接。",
+      "drop_torrent": "將 .torrent 文件拖到這裏",
+      "click_to_select": "或點擊選擇一個 .torrent 文件",
+      "parsing": "正在解析 Torrent 文件……",
+      "torrent_too_large": "Torrent 文件過大 (最大 10MB)",
+      "parse_failed": "解析 Torrent 文件失敗",
+      "files_count": "文件",
+      "select_all": "選擇全部",
+      "save_path": "保存路徑",
+      "download_tool": "下載工具",
+      "delete_policy": "刪除策略",
+      "start_download": "開始下載",
+      "rapid_upload_and_download": "嘗試秒傳",
+      "rapid_upload_success": "秒傳成功！",
+      "cas_supported": "CAS 秒傳",
+      "cas_hint": "此種子包含 CAS 信息，將先嚐試快速上傳到天翼雲盤。",
+      "cas_rapid_upload_mode": "檢測到 CAS 信息。將使用天翼雲盤快速上傳 (無需下載工具)。",
+      "cas_rapid_upload_failed": "CAS 秒傳失敗。請檢查保存路徑是否為天翼雲盤存儲，或手動下載。",
+      "cas_failed_fallback_hint": "CAS 秒傳失敗。您現在可以選擇下載工具並開始正常離線下載。",
+      "no_cas_hint": "未找到 CAS 信息。文件將先下載，然後上傳。",
+      "reselect": "重新選擇",
+      "simplehttp_not_supported": "SimpleHttp 不支持 BT/magnet 下載。請選擇 aria2 或其他工具。",
+      "ed2k_tool_hint": "檢測到ed2k鏈接。aria2/qBitTorrent 不支持 ed2k 協議。系統將自動嘗試這些工具，或者您可以手動選擇 Thunder/ThunderX/ThunderBrowser。",
+      "generate_cas_file": "生成 CAS 文件",
+      "cas_file_generated": "CAS 文件生成成功",
+      "cas_file_generate_failed": "CAS 文件生成失敗",
+      "file_selection_hint": "注意：種子文件列表僅供參考，不支持部分文件選擇——種子中的所有文件將被下載。"
+    },
+    "delete_policy": {
+      "delete_on_upload_succeed": "上傳成功後刪除",
+      "delete_on_upload_failed": "上傳失敗時刪除",
+      "delete_never": "從不刪除",
+      "delete_always": "總是刪除",
+      "upload_download_stream": "下載流直接上傳"
+    },
+    "download": "下載",
+    "batch_download": "批量下載",
+    "package_download": "打包下載",
+    "package_download_disabled": "打包下載已禁用",
+    "send_aria2": "發送到 Aria2",
+    "aria2_not_set": "請設置 Aria2 RPC URL",
+    "send_aria2_success": "成功發送到 Aria2",
+    "pre_package_download-tips": "在瀏覽器中使用 StreamSaver 替代服務器進行包下載時，需要相應存儲服務支持 CORS，不支持的存儲將會導致下載失敗。",
+    "package_download-tips": "正在下載，請稍候不要關閉頁面",
+    "playlist_download": "播放列表下載",
+    "upload": "上傳",
+    "local_settings": "本地設置",
+    "recursive_move": "聚合移動",
+    "recursive_move_directory-tips": "您確定要將當前文件夾及其子文件夾中的所有文件移動到指定的文件夾嗎？",
+    "remove_empty_directory": "移除空文件夾",
+    "remove_empty_directory-tips": "您確定要刪除所有空子文件夾嗎？",
+    "batch_rename": "批量重命名",
+    "regex_rename": "正則表達式重命名",
+    "sequential_renaming": "順序重命名",
+    "regex_rename_preview": "更改後文件",
+    "regex_rename_preview_old_name": "舊名稱",
+    "regex_rename_preview_new_name": "新名稱",
+    "regular_rename": "正則表達式文件重命名。 在第一行輸入源文件名正則表達式，並在第二行輸入新文件名正則表達式。",
+    "sequential_renaming_desc": "新的文件名將會附加一個起始數值，並按順序從起始值開始每次加 1 進行顯示。請在首行輸入新文件名，第二行輸入起始數值。支持使用 {number} 佔位符。",
+    "sequential_renaming_input3_placeholder": "前導零填充寬度（可選）",
+    "find_replace": "查找並替換",
+    "find_replace_desc": "查找並替換"
+  },
+  "upload": {
+    "add_as_task": "添加為任務",
+    "try_rapid": "嘗試秒傳",
+    "upload-tips": "拖動文件到此處可上傳，或點擊：",
+    "release": "鬆開可上傳",
+    "no_files_drag": "沒有拖入文件。",
+    "upload_files": "選擇文件",
+    "upload_folder": "選擇文件夾",
+    "hashing": "哈希值",
+    "pending": "等待中",
+    "uploading": "上傳中",
+    "backending": "後台上傳中",
+    "success": "成功",
+    "error": "出錯",
+    "back": "返回上傳",
+    "clear_done": "清空完成",
+    "retry": "Retry"
+  },
+  "local_settings": {
+    "aria2_rpc_url": "Aria2 RPC 鏈接",
+    "aria2_rpc_secret": "Aria2 RPC 密鑰",
+    "aria2_dir": "Aria2 下載目錄",
+    "show_folder_in_image_view": "顯示文件夾為圖片視圖",
+    "show_folder_in_image_view_options": {
+      "top": "上方",
+      "bottom": "下方",
+      "none": "隱藏"
+    },
+    "global_default_layout": "全局默認佈局",
+    "global_default_layout_options": {
+      "list": "列表視圖",
+      "grid": "網格視圖",
+      "image": "圖片視圖"
+    },
+    "position_of_header_navbar": "標題欄和導航欄的位置",
+    "position_of_header_navbar_options": {
+      "static": "常規",
+      "sticky": "吸附到頁面頂部",
+      "only_navbar_sticky": "僅吸附導航欄"
+    },
+    "grid_item_size": "網格視圖項目尺寸",
+    "show_sidebar": "顯示側邊欄",
+    "show_sidebar_options": {
+      "none": "隱藏",
+      "visible": "顯示"
+    },
+    "show_count_msg": "顯示文件計數信息",
+    "show_count_msg_options": {
+      "none": "隱藏",
+      "visible": "顯示"
+    },
+    "list_item_filename_overflow": "列表項目文件名過長",
+    "list_item_filename_overflow_options": {
+      "ellipsis": "省略號",
+      "scrollable": "可滾動",
+      "multi_line": "多行顯示"
+    },
+    "open_item_on_checkbox": "在複選框上打開選項",
+    "open_item_on_checkbox_options": {
+      "direct": "直接打開",
+      "dblclick": "雙擊",
+      "disable_while_checked": "選中時禁用"
+    },
+    "editor_font_size": "Editor font size",
+    "editor_word_wrap": "Editor word wrap",
+    "editor_word_wrap_options": {
+      "false": "Off",
+      "true": "On"
+    },
+    "editor_minimap": "Editor minimap",
+    "editor_minimap_options": {
+      "false": "Off",
+      "true": "On"
+    },
+    "show_gallery_thumbnails": "顯示圖庫縮略圖",
+    "show_gallery_thumbnails_options": {
+      "none": "隱藏",
+      "visible": "顯示"
+    }
+  },
+  "package_download": {
+    "current_status": "當前狀態",
+    "initializing": "正在初始化",
+    "fetching_struct": "正在獲取文件夾結構",
+    "fetching_struct_failed": "獲取文件夾結構失敗",
+    "downloading": "正在下載文件，不要關閉或刷新頁面",
+    "failed": "打包下載失敗",
+    "success": "下載完成"
+  },
+  "footer": {
+    "powered_by": "由 OpenList 驅動",
+    "manage": "管理"
+  },
+  "search": {
+    "search": "搜索",
+    "no_result": "暫無結果",
+    "scopes": {
+      "all": "全部",
+      "folder": "文件夾",
+      "file": "文件"
+    }
+  },
+  "fetching_settings_failed": "獲取設置失敗： ",
+  "get_current_user_failed": "獲取當前用户失敗：",
+  "Loading storage, please wait": "正在加載儲存，請稍候",
+  "conflict_policy": {
+    "cancel_if_exists": "如果文件存在則取消",
+    "overwrite_existing": "覆蓋現有文件",
+    "skip_existing": "跳過現有文件",
+    "merge": "僅複製新文件和文件夾"
+  }
+}

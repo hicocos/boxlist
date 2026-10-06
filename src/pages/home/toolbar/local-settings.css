@@ -1,0 +1,101 @@
+.local-settings-drawer {
+  max-width: min(100vw, 26rem);
+}
+.local-settings-drawer .hope-drawer__header {
+  padding-right: 64px;
+}
+.local-settings-drawer .hope-drawer__body {
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+}
+.local-settings-scope {
+  margin-bottom: 12px;
+}
+.local-settings-quick {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.local-settings-quick > button,
+.local-settings-drawer .hope-drawer__close-button {
+  min-width: 44px;
+  min-height: 44px;
+}
+.local-settings-group {
+  padding-top: 20px;
+  margin-top: 20px;
+  border-top: 1px solid var(--hope-colors-neutral6, #8885);
+}
+.local-settings-group-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.local-settings-group-heading h3 {
+  margin: 0;
+  font-weight: 600;
+  font-size: 1rem;
+}
+.local-settings-group-heading > button {
+  flex-shrink: 0;
+  min-height: 36px;
+}
+.local-setting-field {
+  margin-bottom: 16px;
+}
+.local-setting-hint {
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--hope-colors-neutral11, currentColor);
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+.local-setting-feedback {
+  display: block;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.local-setting-feedback:empty {
+  display: none;
+}
+.local-setting-number {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  gap: 4px;
+}
+.local-setting-number > * {
+  min-width: 0;
+  min-height: 44px;
+}
+.local-setting-number input {
+  text-align: center;
+}
+.local-settings-advanced {
+  margin-top: 20px;
+  border-top: 1px solid var(--hope-colors-neutral6, #8885);
+}
+.local-settings-advanced summary {
+  cursor: pointer;
+  padding: 14px 0;
+  min-height: 44px;
+  font-weight: 600;
+}
+.local-settings-advanced summary:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+.local-settings-advanced .local-settings-group {
+  border: 0;
+  padding-top: 0;
+  margin-top: 0;
+}
+@media (max-width: 640px), (pointer: coarse) {
+  .local-settings-group-heading > button,
+  .local-settings-drawer .hope-select__trigger,
+  .local-settings-drawer .hope-input {
+    min-height: 44px;
+  }
+}

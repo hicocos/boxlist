@@ -1,0 +1,50 @@
+.search-dialog {
+  min-width: 0;
+}
+
+/* Match the original compact search panel without affecting other dialogs. */
+html.openlist-glass-home .search-dialog {
+  background-color: var(--glass-bg) !important;
+}
+
+.search-dialog .search-controls {
+  min-width: 0;
+}
+.search-dialog .search-controls .hope-select__trigger {
+  flex-shrink: 0;
+  width: max-content;
+  min-width: 0;
+}
+.search-dialog .search-controls .hope-select__value {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.search-dialog .search-controls input {
+  flex: 1 1 0%;
+  min-width: 0;
+  width: 0;
+}
+.search-dialog .search-result {
+  text-decoration: none;
+}
+.search-dialog .search-result:focus-visible {
+  outline: 2px solid var(--hope-colors-info9);
+  outline-offset: 2px;
+}
+.search-dialog :is(.search-error, .search-retained) {
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.search-dialog .search-error {
+  color: var(--hope-colors-danger11);
+}
+.search-dialog .search-pagination {
+  max-width: 100%;
+}
+.search-dialog .search-pagination > .hope-stack {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.search-dialog .search-pagination:empty {
+  display: none;
+}

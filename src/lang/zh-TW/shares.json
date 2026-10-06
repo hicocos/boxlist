@@ -1,0 +1,42 @@
+{
+  "expires": "過期時間",
+  "id": "ID",
+  "id_placeholder": "自定義ID（可選，留空則隨機生成）",
+  "accessed": "訪問次數",
+  "max_accessed": "最大訪問次數",
+  "pwd": "分享碼",
+  "files": "分享路徑",
+  "files_etc": " 與其它 {{more}} 個",
+  "files_placeholder": "輸入文件或文件夾路徑，每行一個",
+  "add_path": "添加路徑",
+  "creator": "創建者",
+  "status": "狀態",
+  "status_list": {
+    "disabled": "已禁用",
+    "invalid": "已失效",
+    "work": "正常",
+    "denied": "無權限"
+  },
+  "remark": "備註",
+  "readme": "説明",
+  "header": "頂部説明",
+  "order_by": "排序依據",
+  "order_bys": {
+    "name": "名稱",
+    "size": "大小",
+    "modified": "修改時間"
+  },
+  "order_direction": "排序方向",
+  "order_directions": {
+    "asc": "升序",
+    "desc": "降序"
+  },
+  "extract_folder": "文件夾順序",
+  "extract_folders": {
+    "front": "文件夾置頂",
+    "back": "文件夾置底"
+  },
+  "input_password": "請輸入分享碼",
+  "copy_msg": "複製鏈接",
+  "no_permission_tip": "創建分享需要啓用“分享”權限。"
+}

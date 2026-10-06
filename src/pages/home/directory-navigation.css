@@ -1,0 +1,24 @@
+.obj-box .directory-return-highlight {
+  outline: 2px solid var(--hope-colors-accent7, #7aa9cf);
+  outline-offset: -2px;
+  background-color: var(--hope-colors-accent3, rgb(110 150 180 / 12%));
+}
+.directory-error-details {
+  max-width: 100%;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+.directory-error-details summary {
+  cursor: pointer;
+  padding: 0.5rem;
+}
+.directory-error-details code {
+  display: block;
+  padding: 0.5rem;
+}
+.directory-loading-region {
+  width: 100%;
+  min-height: 240px;
+  display: grid;
+  place-items: center;
+}
