@@ -1,3 +1,14 @@
+/* Integrated native service check; no arbitrary endpoint. */
+.im-service-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.im-service-status p { flex: 1 1 220px; margin: 0; overflow-wrap: anywhere; }
+.im-service-status button { flex: 0 0 auto; min-height: 44px; padding: 8px 14px; }
 .icon-manager {
   --im-border: var(--hope-colors-neutral6, #d8dce5);
   --im-surface: var(--hope-colors-neutral2, #f7f8fb);

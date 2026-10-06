@@ -210,7 +210,7 @@ export const [uploadedIconAssets, setUploadedIconAssets] = createSignal<
 >([])
 export const uploadedIconURL = (id: string) => {
   if (!isUploadedIconId(id)) throw new Error("上传图标标识无效")
-  return `${base_path}/icon-library/assets/${id}.webp`
+  return `${base_path}/icon/assets/${id}.webp`
 }
 export const toUploadedIconAsset = (raw: UploadedIconAsset): IconAsset => {
   const item = parseUploadedIconAsset(raw)

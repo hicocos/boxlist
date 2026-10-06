@@ -13,7 +13,7 @@ import {
 // Same origin only; use the current native API authorization header without
 // writing/printing/storing credentials or adding another login mechanism.
 const client = axios.create({ timeout: 45000, withCredentials: false })
-const prefix = () => `${base_path}/icon-library/api`
+const prefix = () => `${base_path}/icon/api`
 const responseData = (response: {
   code?: number
   message?: string

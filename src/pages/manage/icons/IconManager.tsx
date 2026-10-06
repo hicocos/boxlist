@@ -44,6 +44,7 @@ import {
   iconLibraryAdapter,
   type IconLibraryAdapter,
 } from "./IconUploader"
+import { IconServiceStatus } from "./IconServiceStatus"
 import "./icons.css"
 
 const groups = [
@@ -1311,6 +1312,9 @@ const IconManager = () => {
         </p>
       }
     >
+      <div class="icon-manager">
+        <IconServiceStatus />
+      </div>
       <IconManagerPanel load={loadIconSettings} save={saveIconSettings} />
     </Show>
   )

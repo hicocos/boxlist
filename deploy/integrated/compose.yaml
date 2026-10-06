@@ -1,0 +1,18 @@
+# Alternative to installer; prepare a NEW directory owned by 1001:1001 first.
+# Never start this against live/production data without a separate migration review.
+services:
+  openlist-custom:
+    image: "${OPENLIST_IMAGE:?Set a fixed published tag or digest; no release is assumed}"
+    user: "1001:1001"
+    restart: unless-stopped
+    environment:
+      SITE_URL: "${OPENLIST_SITE_URL:?Set your actual canonical HTTPS site URL}"
+    ports:
+      - "127.0.0.1:${OPENLIST_PORT:-5246}:5244"
+    volumes:
+      - type: bind
+        source: "${OPENLIST_DATA_DIR:?Set a prepared dedicated absolute data directory}"
+        target: /opt/openlist/data
+        bind:
+          create_host_path: false
+    stop_grace_period: 30s
