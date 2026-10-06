@@ -10,6 +10,8 @@
 
 ---
 
+本项目基于 [OpenList](https://github.com/OpenListTeam/OpenList) 开发。
+
 ## 功能
 
 - [x] 多种存储
