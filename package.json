@@ -20,20 +20,12 @@
   ],
   "homepage": "https://openlist.team/",
   "scripts": {
-    "crowdin:upload": "crowdin upload sources --auto-update",
-    "crowdin:download": "crowdin download --verbose",
-    "crowdin": "pnpm crowdin:upload && pnpm crowdin:download",
-    "i18n:build": "pnpm crowdin && node ./scripts/i18n.mjs",
-    "i18n:release": "pnpm run crowdin:download && node ./scripts/i18n.mjs",
     "start": "vite",
     "dev": "vite --force",
     "build": "vite build",
     "build:lite": "cross-env VITE_LITE=true vite build",
     "serve": "vite preview",
-    "prepare": "husky",
-    "lint": "tsc -p tsconfig.json --noEmit",
-    "test:ux": "node --test tests/ux-*.test.mjs",
-    "format": "prettier --ignore-path .gitignore -w \"src/**/*.{js,ts,json,css,tsx,jsx}\""
+    "lint": "tsc -p tsconfig.json --noEmit"
   },
   "license": "MIT",
   "devDependencies": {
@@ -112,8 +104,5 @@
     "solid-transition-group": "^0.3.0",
     "streamsaver": "^2.0.6",
     "typescript-natural-sort": "^0.7.2"
-  },
-  "lint-staged": {
-    "**/*.{js,ts,css,tsx,jsx,md,html,yml,yaml}": "prettier --write"
   }
 }

@@ -4,7 +4,7 @@
 
 支持多种存储的文件列表程序，提供文件管理、在线预览和个性化界面。
 
-[使用文档](docs/quickstart.md) · [下载安装](https://github.com/hicocos/boxlist/releases) · [问题反馈](https://github.com/hicocos/boxlist/issues)
+[安装](#安装) · [问题反馈](https://github.com/hicocos/boxlist/issues)
 
 </div>
 
@@ -51,12 +51,6 @@ docker compose up -d --build
 ```sh
 docker compose logs boxlist
 ```
-
-## 文档
-
-- [部署指南](docs/quickstart.md)
-- [数据迁移与备份](docs/migration.md)
-- [开发与维护](docs/backend-changes.md)
 
 ## 反馈与贡献
 
