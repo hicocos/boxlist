@@ -27,12 +27,12 @@ jobs:
       - name: Package compiled frontend
         run: |
           mkdir -p artifacts
-          tar -czf artifacts/openlist-frontend-custom.tar.gz dist/
+          tar -czf artifacts/boxlist.tar.gz dist/
           cd artifacts
-          sha256sum openlist-frontend-custom.tar.gz > SHA256SUMS
+          sha256sum boxlist.tar.gz > SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
-          name: openlist-frontend-custom
+          name: boxlist
           path: artifacts/
   native-backend:
     runs-on: ubuntu-latest
@@ -45,7 +45,7 @@ jobs:
           cache-dependency-path: backend/go.sum
       - uses: actions/download-artifact@v4
         with:
-          name: openlist-frontend-custom
+          name: boxlist
           path: frontend-artifact
       - name: Install full embedded frontend
         run: |
@@ -54,7 +54,7 @@ jobs:
           cd ..
           rm -rf backend/public/dist
           mkdir -p backend/public/dist
-          tar -xzf frontend-artifact/openlist-frontend-custom.tar.gz --strip-components=1 -C backend/public/dist
+          tar -xzf frontend-artifact/boxlist.tar.gz --strip-components=1 -C backend/public/dist
       - name: Native icon and adapter tests
         working-directory: backend
         run: go test -race ./internal/iconlibrary ./server

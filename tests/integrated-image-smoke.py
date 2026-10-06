@@ -5,9 +5,9 @@ from PIL import Image
 scratch=os.environ.get('OPENLIST_INTEGRATED_TEST_SCRATCH')
 if not scratch: raise SystemExit('Set OPENLIST_INTEGRATED_TEST_SCRATCH to a private scratch directory (root required).')
 root=Path(tempfile.mkdtemp(prefix='native-openlist-acceptance-',dir=scratch))
-image_tag=os.environ.get('OPENLIST_INTEGRATED_TEST_IMAGE','openlist-custom:verification')
+image_tag=os.environ.get('OPENLIST_INTEGRATED_TEST_IMAGE','boxlist:verification')
 data=root/'data'; data.mkdir(mode=0o700);os.chown(data,1001,1001)
-name='openlist-custom-acceptance-'+secrets.token_hex(4)
+name='boxlist-acceptance-'+secrets.token_hex(4)
 report={'isolated':True,'production_modified':False,'checks':[]}
 def docker(*args):return subprocess.check_output(['docker',*args],stderr=subprocess.STDOUT).decode()
 def request(path,method='GET',body=None,headers=None):

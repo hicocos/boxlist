@@ -1,7 +1,11 @@
 name: boxlist
 services:
   boxlist:
-    image: "${BOXLIST_IMAGE:?Set a published fixed image tag or digest}"
+    image: boxlist:local
+    build:
+      context: .
+      args:
+        VERSION: custom-local
     restart: unless-stopped
     environment:
       SITE_URL: "${SITE_URL:-}"

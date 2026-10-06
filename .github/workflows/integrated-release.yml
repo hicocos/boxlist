@@ -55,13 +55,13 @@ jobs:
           load: true
           push: false
           platforms: linux/amd64
-          tags: openlist-custom:${{ inputs.version }}
+          tags: boxlist:${{ inputs.version }}
           build-args: |
             VERSION=${{ inputs.version }}
             SOURCE_COMMIT=${{ github.sha }}
       - name: Native runtime, real auth and persistence acceptance
         env:
-          OPENLIST_INTEGRATED_TEST_IMAGE: openlist-custom:${{ inputs.version }}
+          OPENLIST_INTEGRATED_TEST_IMAGE: boxlist:${{ inputs.version }}
           OPENLIST_INTEGRATED_TEST_SCRATCH: ${{ runner.temp }}
         run: |
           python3 -m venv "$RUNNER_TEMP/smoke-venv"
@@ -72,15 +72,15 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          docker run --rm --network none --read-only openlist-custom:"$VERSION" version
+          docker run --rm --network none --read-only boxlist:"$VERSION" version
           mkdir -p artifacts
-          tar -czf artifacts/openlist-frontend-custom-"$VERSION".tar.gz dist/
-          git archive --format=tar HEAD | gzip > artifacts/openlist-custom-source-"$VERSION".tar.gz
+          tar -czf artifacts/boxlist-"$VERSION".tar.gz dist/
+          git archive --format=tar HEAD | gzip > artifacts/boxlist-source-"$VERSION".tar.gz
           cp scripts/install.sh artifacts/install.sh
-          docker save openlist-custom:"$VERSION" | gzip > artifacts/openlist-custom-image-"$VERSION"-linux-amd64.tar.gz
+          docker save boxlist:"$VERSION" | gzip > artifacts/boxlist-image-"$VERSION"-linux-amd64.tar.gz
           cd artifacts
-          sha256sum -- openlist-frontend-custom-"$VERSION".tar.gz openlist-custom-source-"$VERSION".tar.gz install.sh > SHA256SUMS
-          sha256sum -- openlist-custom-image-"$VERSION"-linux-amd64.tar.gz > IMAGE_SHA256SUMS
+          sha256sum -- boxlist-"$VERSION".tar.gz boxlist-source-"$VERSION".tar.gz install.sh > SHA256SUMS
+          sha256sum -- boxlist-image-"$VERSION"-linux-amd64.tar.gz > IMAGE_SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
           name: integrated-${{ inputs.version }}
@@ -110,10 +110,10 @@ jobs:
           cd artifacts
           sha256sum -c SHA256SUMS
           sha256sum -c IMAGE_SHA256SUMS
-          gzip -dc openlist-custom-image-"$VERSION"-linux-amd64.tar.gz | docker load
+          gzip -dc boxlist-image-"$VERSION"-linux-amd64.tar.gz | docker load
           printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-          IMAGE=ghcr.io/hicocos/openlist-custom:"$VERSION"
-          docker tag openlist-custom:"$VERSION" "$IMAGE"
+          IMAGE=ghcr.io/hicocos/boxlist:"$VERSION"
+          docker tag boxlist:"$VERSION" "$IMAGE"
           # No latest tag; refuse replacing an existing version.
           if docker manifest inspect "$IMAGE" >/dev/null 2>&1; then
             printf '%s\n' 'Version image already exists; refusing overwrite.' >&2
@@ -127,5 +127,5 @@ jobs:
           docker manifest inspect "$IMAGE"
           gh release create "$VERSION" --target "$GITHUB_SHA" --title "Native integrated $VERSION" \
             --notes "Native Go integrated edition, linux/amd64 image; complete dist/ frontend and corresponding source attached. See README for AGPL/MIT terms, data permissions, HTTPS and migration safety." \
-            openlist-frontend-custom-"$VERSION".tar.gz openlist-custom-source-"$VERSION".tar.gz install.sh SHA256SUMS
+            boxlist-"$VERSION".tar.gz boxlist-source-"$VERSION".tar.gz install.sh SHA256SUMS
           gh release view "$VERSION" --json tagName,url,assets

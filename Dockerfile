@@ -32,8 +32,8 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 FROM ${RUNTIME_IMAGE} AS runtime
 ARG VERSION=custom-local
 ARG SOURCE_COMMIT=unknown
-LABEL org.opencontainers.image.title="OpenList Custom — native integrated edition" \
-      org.opencontainers.image.source="https://github.com/hicocos/openlist-frontend-custom" \
+LABEL org.opencontainers.image.title="boxlist" \
+      org.opencontainers.image.source="https://github.com/hicocos/boxlist" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${SOURCE_COMMIT}" \
       org.opencontainers.image.licenses="AGPL-3.0-only AND MIT"
@@ -45,8 +45,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 WORKDIR /opt/openlist
 COPY --from=backend --chmod=755 /out/openlist ./openlist
 COPY --from=frontend /src/dist/ ./dist/
-COPY LICENSE /usr/share/licenses/openlist-custom/frontend-MIT.txt
-COPY backend/LICENSE /usr/share/licenses/openlist-custom/backend-AGPL-3.0.txt
+COPY LICENSE /usr/share/licenses/boxlist/frontend-MIT.txt
+COPY backend/LICENSE /usr/share/licenses/boxlist/backend-AGPL-3.0.txt
 USER 1001:1001
 VOLUME ["/opt/openlist/data"]
 EXPOSE 5244

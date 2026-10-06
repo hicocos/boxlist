@@ -2,9 +2,9 @@
 # New isolated installation only. Never adopt/chown/recreate existing data or containers.
 set -eu
 umask 027
-DIR=/srv/openlist-custom
+DIR=/srv/boxlist
 PORT=5244
-NAME=openlist-custom
+NAME=boxlist
 IMAGE=
 VERSION=
 DRY_RUN=false
@@ -13,10 +13,10 @@ usage() {
   printf '%s\n' \
     'Usage: install.sh --version custom-vX.Y.Z [options]' \
     '   or: install.sh --image REGISTRY/IMAGE:PINNED_TAG [options]' \
-    '  --dir PATH    New, nonexistent absolute data directory (/srv/openlist-custom)' \
+    '  --dir PATH    New, nonexistent absolute data directory (/srv/boxlist)' \
     '  --port PORT   Host HTTP port (5244), published on all host interfaces' \
-    '  --name NAME   New container name (openlist-custom)' \
-    '  --version TAG Use ghcr.io/hicocos/openlist-custom:TAG; no default release yet' \
+    '  --name NAME   New container name (boxlist)' \
+    '  --version TAG Use ghcr.io/hicocos/boxlist:TAG; no default release yet' \
     '  --image REF   Explicit pinned image tag or sha256 digest (no latest)' \
     '  --dry-run     Validate Docker/name/port/path and print; do not pull/write/run' \
     '  --help        Print help; no Docker needed' \
@@ -40,7 +40,7 @@ done
 [ -z "$VERSION" ] || [ -z "$IMAGE" ] || fail 'Choose --version OR --image, not both'
 if [ -n "$VERSION" ]; then
   case "$VERSION" in *[!a-zA-Z0-9_.-]*|''|-*) fail 'Invalid version tag' ;; esac
-  IMAGE=ghcr.io/hicocos/openlist-custom:$VERSION
+  IMAGE=ghcr.io/hicocos/boxlist:$VERSION
 fi
 [ -n "$IMAGE" ] || fail 'No release is assumed: supply --version or --image (see --help)'
 case "$IMAGE" in *[!a-zA-Z0-9_./:@-]*|-*) fail 'Invalid image reference' ;; esac
