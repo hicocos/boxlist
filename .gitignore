@@ -15,7 +15,7 @@ __pycache__/
 *.db
 *.db-wal
 *.db-shm
-uploads/
+/uploads/
 _recovery/
 artifacts/
 .test-scratch/
