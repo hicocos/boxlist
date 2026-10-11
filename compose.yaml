@@ -1,7 +1,7 @@
 name: boxlist
 services:
   boxlist:
-    container_name: boxlist
+    container_name: "${BOXLIST_CONTAINER_NAME:-boxlist}"
     image: "${BOXLIST_IMAGE:-ghcr.io/hicocos/boxlist:latest}"
     restart: unless-stopped
     environment:

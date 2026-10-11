@@ -15,6 +15,22 @@
 
 ## 安装
 
+### 一键安装（推荐）
+
+Linux AMD64 / ARM64 服务器，需 Bash、curl、coreutils 和 util-linux。执行：
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/hicocos/boxlist/main/install.sh -o install-boxlist.sh && sudo bash install-boxlist.sh install --install-docker
+```
+
+脚本使用预构建镜像；未安装 Docker 时通过 Docker 官方脚本安装。已有 Docker 但缺少 Compose 插件时会提示安装插件。默认安装目录 `/opt/boxlist`、容器名 `boxlist`、端口 `5244`，数据保存在 `boxlist_data` 命名卷中。
+
+安装后运行 `sudo boxlist` 打开管理菜单；`sudo boxlist logs` 查看初始密码，`sudo boxlist update` 更新，`sudo boxlist password` 重置管理员密码。卸载命令 `sudo boxlist uninstall` 保留数据与配置，之后可用 `sudo boxlist start` 恢复。
+
+脚本不会覆盖已有容器、数据卷或非空安装目录。现有 Compose 部署继续按下文更新；自定义端口、路径和多实例参数见[一键脚本说明](DEPLOYMENT.md#一键安装与管理)。
+
+### 手动 Compose 安装
+
 需要 Docker Engine 和 Docker Compose 插件，以及访问 GHCR（`ghcr.io`）的网络。镜像支持 Linux AMD64 / ARM64，Docker 会自动选择对应架构。
 
 ```sh
@@ -47,6 +63,7 @@ docker compose logs boxlist
 | `BIND_ADDRESS` | `0.0.0.0` | 宿主机端口绑定地址；同机反向代理建议 `127.0.0.1` |
 | `PORT` | `5244` | 宿主机端口；容器内部仍为 `5244` |
 | `BOXLIST_IMAGE` | `ghcr.io/hicocos/boxlist:latest` | 镜像地址，可指定已发布标签或 digest |
+| `BOXLIST_CONTAINER_NAME` | `boxlist` | 容器名；多实例需同时使用不同项目名和端口 |
 
 修改后运行 `docker compose up -d` 使容器配置生效。其他应用环境变量需要在 Compose 的 `environment` 中显式传入，不能仅写入 `.env`。
 

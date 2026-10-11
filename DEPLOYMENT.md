@@ -22,6 +22,42 @@ Docker 构建不要求宿主机安装 Node、pnpm、Go 或 libvips，但需要�
 
 如自行构建后端，必须先构建本仓库前端并将 `dist/` 内容放入 `backend/public/dist/`，再编译 Go。Linux 运行环境还需安装上述图片工具；仅构建 Go 二进制不能提供预览图编码能力。
 
+## 一键安装与管理
+
+脚本参考 [OpenList 官方管理脚本](https://doc.oplist.org/guide/installation/script)的安装和管理体验，为 Boxlist 的 GHCR 镜像独立实现；不安装 OpenList 官方二进制。支持 Linux AMD64 / ARM64，宿主需要 Bash、curl、coreutils（realpath、timeout）和 util-linux（flock）。
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/hicocos/boxlist/main/install.sh -o install-boxlist.sh
+sudo bash install-boxlist.sh install --install-docker
+```
+
+`--install-docker` 允许在 Docker 不存在时下载并运行 `https://get.docker.com` 官方安装脚本，需要 root 及该脚本支持的发行版。已有 Docker 不会被重装；如果缺少 Compose 插件，需按发行版安装插件后重试。Docker 服务必须可访问，安装网络需要 GitHub、GHCR；脚本不修改防火墙或配置 HTTPS。
+
+默认配置目录 `/opt/boxlist`，容器和项目名 `boxlist`，数据卷 `boxlist_data`。安装后检查容器内公开设置 API 的 HTTP 状态，再报告启动完成。root 安装默认实例时会创建 `/usr/local/bin/boxlist`（不覆盖已有命令），运行 `sudo boxlist` 打开菜单。
+
+| 命令 | 行为 |
+| --- | --- |
+| `sudo boxlist update` | 先拉取镜像，成功后更新容器；保留配置与数据；更新前自行备份 |
+| `sudo boxlist status` | 查看运行状态 |
+| `sudo boxlist logs` | 查看最近 100 行日志，首次密码也在其中；不要公开日志 |
+| `sudo boxlist start` | 启动或重新创建容器；应用修改后的 `.env` / override |
+| `sudo boxlist stop` / `restart` | 停止 / 重启服务；restart 不重新加载 Compose 配置 |
+| `sudo boxlist password` | 停服后生成随机管理员密码，完成后恢复此前运行状态 |
+| `sudo boxlist uninstall` | 确认后移除容器和网络，保留数据卷、安装目录和管理命令 |
+
+无交互卸载可加 `--yes`，也不会删除数据。重新运行 `start` 可恢复已卸载容器。脚本不接管现有 Compose 实例：容器、项目、同名卷已存在或目标目录非空时拒绝新安装。安装已保存配置但拉取失败时，用相同 `--dir` 执行 `update` 重试；更新拉取失败不会停止旧服务。
+
+自定义安装示例（适合同机反向代理）：
+
+```sh
+sudo bash install-boxlist.sh install --dir /opt/boxlist-second --name boxlist-second --port 5245 --bind 127.0.0.1 --site-url https://files.example.com
+sudo bash /opt/boxlist-second/boxlist.sh status --dir /opt/boxlist-second
+```
+
+非默认实例不创建全局 `boxlist` 命令，使用安装目录中的 `boxlist.sh` 和相同的 `--dir`。非 root 用户已有 Docker 权限时可省略 sudo，选择可写目录。镜像可用 `--image` 指定已发布版本或 digest；这些安装参数仅用于新安装，后续修改安装目录中的 `.env`，执行 `start` 应用配置。不要更改项目名、容器名或数据卷归属。
+
+脚本使用项目专用锁避免同时执行管理操作，始终使用保存的 `.env`，可合并同目录的 `compose.override.yaml`。不会自动更新管理脚本或覆盖本地 Compose 配置，也不启用定时更新。完整备份与恢复按下文执行；没有自动删除数据或恢复覆盖数据库的菜单。
+
 ## 首次启动
 
 ```sh
@@ -55,6 +91,7 @@ Compose 从项目根目录 `.env` 或命令行环境读取：
 | `BIND_ADDRESS` | `0.0.0.0` | 宿主端口绑定的接口 |
 | `PORT` | `5244` | 宿主端口，转发到容器内 `5244` |
 | `BOXLIST_IMAGE` | `ghcr.io/hicocos/boxlist:latest` | 可指定已发布版本标签、`sha-完整提交SHA` 或 `ghcr.io/hicocos/boxlist@sha256:…` |
+| `BOXLIST_CONTAINER_NAME` | `boxlist` | 容器名；多实例必须同时区分 Compose 项目名、端口和数据卷 |
 
 例如，仅供同机反向代理访问：
 
