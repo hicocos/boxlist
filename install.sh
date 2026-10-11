@@ -314,28 +314,12 @@ if [[ $command_name == install ]]; then
     if [[ -e $marker ]]; then
         fail "此目录已经安装；使用 update 或 start：$install_dir"
     fi
-    if [[ $interactive == true ]]; then
-        heading '安装 BoxList'
-        printf '按 Enter 使用默认值；端口和站点地址以后也能在面板修改。\n'
-        [[ $port_explicit == true ]] || prompt_port
-        [[ $bind_explicit == true ]] || prompt_bind
-        if [[ $image_explicit == false ]]; then
-            printf '请选择要使用的 BoxList Docker 镜像标签：\n1 - latest（默认）\n2 - 手动输入标签\n'
-            read -r -p '请输入选项 [1-2] (默认1): ' tag_choice || exit 0
-            case "$tag_choice" in
-                1|'') ;;
-                2)
-                    read -r -p '请输入已发布的镜像标签: ' tag || exit 0
-                    [[ $tag =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]] || fail '无效镜像标签'
-                    image="ghcr.io/hicocos/boxlist:$tag" ;;
-                *) fail '无效的选项' ;;
-            esac
-        fi
-        [[ $site_explicit == true ]] || prompt_site
-        printf '\n  实例：%s\n  目录：%s\n  监听：%s:%s\n  镜像：%s\n\n' "$instance" "$install_dir" "$bind" "$port" "$image"
-        read -r -p '开始安装？[Y/n]: ' answer || exit 0
-        case "$answer" in n|N) printf '已取消。\n'; exit 0 ;; esac
+    heading '安装 BoxList'
+    if [[ $interactive == true && $port_explicit == false ]]; then
+        printf '直接按 Enter 即可安装；只有需要更换访问端口时才输入其他数字。\n'
+        prompt_port
     fi
+    printf '正在安装，请稍候…完成后会直接显示访问地址和账号密码。\n'
     [[ $instance =~ ^[a-z0-9][a-z0-9_-]*$ ]] || fail '名称仅允许小写字母、数字、下划线和短横线'
     valid_port "$port" || fail '端口必须为 1–65535'
     valid_bind "$bind" || fail '无效 IPv4 地址'
@@ -683,6 +667,7 @@ case "$command_name" in
         show_access
         show_initial_credentials
         printf '\n  管理命令  bash %q --dir %q\n' "$install_dir/boxlist.sh" "$install_dir"
+        printf '\n  使用方法：在浏览器打开上面的地址，输入账号和密码登录。\n  无法访问时，请检查服务器防火墙或安全组是否放行访问端口。\n'
         ;;
     update)
         printf '更新将保留数据卷与配置；请确保已完成备份。\n'

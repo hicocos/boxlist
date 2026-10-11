@@ -28,7 +28,7 @@
 curl -fsSL https://raw.githubusercontent.com/hicocos/boxlist/main/install.sh -o install-boxlist.sh && sudo bash install-boxlist.sh install --install-docker
 ```
 
-进入菜单后选择 `1` 安装，端口可自行设置（默认 `5244`）。安装完成会直接显示访问地址和初始账号密码。
+进入菜单选择 `1`，端口提示直接回车即可安装。安装完成会显示访问地址和初始账号密码。
 
 运行 `sudo boxlist` 打开管理菜单，或使用 `sudo boxlist update` 更新。
 

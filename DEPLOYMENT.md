@@ -33,7 +33,7 @@ sudo bash install-boxlist.sh install --install-docker
 
 `--install-docker` 允许在 Docker 不存在时下载并运行 `https://get.docker.com` 官方安装脚本，需要 root 及该脚本支持的发行版。已有 Docker 不会被重装；如果缺少 Compose 插件，需按发行版安装插件后重试。Docker 服务必须可访问，安装网络需要 GitHub、GHCR；脚本不修改防火墙或配置 HTTPS。
 
-运行一键命令首先进入管理菜单，选择 `1` 安装。默认配置目录 `/opt/boxlist`，容器和项目名 `boxlist`，数据卷 `boxlist_data`。安装时可选择端口（默认 5244）、监听地址和站点地址；完成后直接显示初始账号密码，按任意键返回主菜单。保留旧数据安装时继续使用原密码。root 安装默认实例时会创建 `/usr/local/bin/boxlist`（不覆盖已有命令），运行 `sudo boxlist` 打开菜单。自动化安装可加 `--non-interactive`，直接安装并在完成后退出。
+运行一键命令首先进入管理菜单，选择 `1` 安装。安装只询问访问端口，直接回车使用 5244，随后自动安装；不需要选择镜像或填写域名。默认配置目录 `/opt/boxlist`、容器名 `boxlist`、数据卷 `boxlist_data`。完成后直接显示访问地址和初始账号密码，按任意键返回主菜单。保留旧数据安装时继续使用原密码。root 安装默认实例时会创建 `/usr/local/bin/boxlist`（不覆盖已有命令），运行 `sudo boxlist` 打开菜单。高级配置可使用下文命令参数或 `configure`；自动化安装可加 `--non-interactive`，直接安装并在完成后退出。
 
 | 命令 | 行为 |
 | --- | --- |
