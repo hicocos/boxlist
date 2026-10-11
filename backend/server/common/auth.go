@@ -1,6 +1,10 @@
 package common
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"github.com/google/uuid"
+	"sync"
 	"time"
 
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
@@ -19,12 +23,24 @@ type UserClaims struct {
 }
 
 var validTokenCache = cache.NewMemCache[bool]()
+var validTokenFingerprints = cache.NewMemCache[bool]()
+var tokenStateMu sync.Mutex
+
+func TokenFingerprint(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
+func TokenFingerprintValid(fingerprint string) bool {
+	_, ok := validTokenFingerprints.Get(fingerprint)
+	return ok
+}
 
 func GenerateToken(user *model.User) (tokenString string, err error) {
 	claim := UserClaims{
 		Username: user.Username,
 		PwdTS:    user.PwdTS,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.NewString(),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(conf.Conf.TokenExpiresIn) * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
@@ -34,7 +50,10 @@ func GenerateToken(user *model.User) (tokenString string, err error) {
 	if err != nil {
 		return "", err
 	}
+	tokenStateMu.Lock()
 	validTokenCache.Set(tokenString, true)
+	validTokenFingerprints.Set(TokenFingerprint(tokenString), true, cache.WithEx[bool](time.Until(claim.ExpiresAt.Time)))
+	tokenStateMu.Unlock()
 	return tokenString, err
 }
 
@@ -68,7 +87,10 @@ func InvalidateToken(tokenString string) error {
 	if tokenString == "" {
 		return nil // don't invalidate empty guest token
 	}
+	tokenStateMu.Lock()
 	validTokenCache.Del(tokenString)
+	validTokenFingerprints.Del(TokenFingerprint(tokenString))
+	tokenStateMu.Unlock()
 	return nil
 }
 

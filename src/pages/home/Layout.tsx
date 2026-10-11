@@ -7,11 +7,27 @@ import { Body } from "./Body"
 import { Header } from "./header/Header"
 import { Toolbar } from "./toolbar/Toolbar"
 
+const announcementSessionKey = "openlist-announcement-shown"
+let announcementShown = false
+
 const Index = () => {
   useTitle(getSetting("site_title"))
   const announcement = getSetting("announcement")
-  if (announcement) {
-    notify.render(<Markdown children={announcement} />)
+  if (announcement && !announcementShown) {
+    try {
+      announcementShown = sessionStorage.getItem(announcementSessionKey) === "true"
+    } catch {
+      // Keep navigation deduplication when browser storage is unavailable.
+    }
+    if (!announcementShown) {
+      notify.render(<Markdown children={announcement} />)
+      announcementShown = true
+      try {
+        sessionStorage.setItem(announcementSessionKey, "true")
+      } catch {
+        // The in-memory flag still covers this document's lifetime.
+      }
+    }
   }
   return (
     <>

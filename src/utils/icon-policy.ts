@@ -11,7 +11,6 @@ export type IconTarget = {
   extensions?: string[]
   type: number
   example: string
-  recommended?: string
 }
 
 const baseTargets: IconTarget[] = [
@@ -22,7 +21,6 @@ const baseTargets: IconTarget[] = [
     group: "general",
     type: 1,
     example: "示例文件夹",
-    recommended: "pack-folder",
   },
   {
     id: "video",
@@ -31,7 +29,6 @@ const baseTargets: IconTarget[] = [
     group: "general",
     type: 2,
     example: "示例视频.mp4",
-    recommended: "pack-video",
   },
   {
     id: "audio",
@@ -40,7 +37,6 @@ const baseTargets: IconTarget[] = [
     group: "general",
     type: 3,
     example: "示例音乐.flac",
-    recommended: "pack-music",
   },
   {
     id: "image",
@@ -49,7 +45,6 @@ const baseTargets: IconTarget[] = [
     group: "general",
     type: 5,
     example: "示例图片.jpg",
-    recommended: "pack-image",
   },
   {
     id: "text",
@@ -58,7 +53,6 @@ const baseTargets: IconTarget[] = [
     group: "general",
     type: 4,
     example: "示例代码.py",
-    recommended: "pack-document",
   },
   {
     id: "archive",
@@ -83,23 +77,22 @@ const baseTargets: IconTarget[] = [
     group: "general",
     type: 0,
     example: "下载按钮",
-    recommended: "pack-download",
   },
 ]
-const formats: Array<[string, string, number, string?]> = [
-  ["doc", "office", 0, "pack-doc"],
-  ["docx", "office", 0, "pack-docx"],
+const formats: Array<[string, string, number]> = [
+  ["doc", "office", 0],
+  ["docx", "office", 0],
   ["xls", "office", 0],
-  ["xlsx", "office", 0, "pack-xlsx"],
-  ["ppt", "office", 0, "pack-ppt"],
-  ["pptx", "office", 0, "pack-pptx"],
-  ["pdf", "office", 0, "pack-pdf"],
-  ["psd", "office", 0, "pack-psd"],
+  ["xlsx", "office", 0],
+  ["ppt", "office", 0],
+  ["pptx", "office", 0],
+  ["pdf", "office", 0],
+  ["psd", "office", 0],
   ["ai", "office", 0],
   ["epub", "office", 0],
-  ["mp3", "audio", 3, "pack-mp3"],
-  ["wav", "audio", 3, "pack-wav"],
-  ["wma", "audio", 3, "pack-wma"],
+  ["mp3", "audio", 3],
+  ["wav", "audio", 3],
+  ["wma", "audio", 3],
   ["flac", "audio", 3],
   ["ogg", "audio", 3],
   ["m4a", "audio", 3],
@@ -125,9 +118,9 @@ const formats: Array<[string, string, number, string?]> = [
   ["ico", "image", 5],
   ["heic", "image", 5],
   ["heif", "image", 5],
-  ["zip", "archive", 0, "pack-zip"],
-  ["rar", "archive", 0, "pack-rar"],
-  ["cab", "archive", 0, "pack-cab"],
+  ["zip", "archive", 0],
+  ["rar", "archive", 0],
+  ["cab", "archive", 0],
   ["7z", "archive", 0],
   ["tar", "archive", 0],
   ["gz", "archive", 0],
@@ -135,7 +128,7 @@ const formats: Array<[string, string, number, string?]> = [
   ["xz", "archive", 0],
   ["tgz", "archive", 0],
   ["zst", "archive", 0],
-  ["txt", "text", 4, "pack-txt"],
+  ["txt", "text", 4],
   ["md", "text", 4],
   ["json", "text", 4],
   ["html", "text", 4],
@@ -199,7 +192,7 @@ const formats: Array<[string, string, number, string?]> = [
 ]
 export const ICON_TARGETS: IconTarget[] = [
   ...baseTargets,
-  ...formats.map(([extension, group, type, recommended]) => ({
+  ...formats.map(([extension, group, type]) => ({
     id: `ext:${extension}`,
     label: extension.toUpperCase(),
     english: extension.toUpperCase(),
@@ -207,42 +200,18 @@ export const ICON_TARGETS: IconTarget[] = [
     group,
     type,
     example: `示例文件.${extension}`,
-    recommended,
   })),
 ]
-export const ICON_ASSET_IDS = new Set([
-  "pack-cab",
-  "pack-doc",
-  "pack-docx",
-  "pack-mp3",
-  "pack-pdf",
-  "pack-ppt",
-  "pack-pptx",
-  "pack-psd",
-  "pack-rar",
-  "pack-txt",
-  "pack-wav",
-  "pack-wma",
-  "pack-xlsx",
-  "pack-zip",
-  "pack-download",
-  "pack-image",
-  "pack-folder",
-  "pack-document",
-  "pack-video",
-  "pack-music",
-  "legacy-smile",
-])
 // Uploaded IDs are immutable, path-safe server-generated identifiers, never URLs.
 export const isUploadedIconId = (value: unknown): value is string =>
   typeof value === "string" && /^upload-[a-f0-9]{32}$/.test(value)
-export const isKnownIconAssetId = (value: unknown): value is string =>
-  typeof value === "string" &&
-  (ICON_ASSET_IDS.has(value) || isUploadedIconId(value))
 export type UploadedIconAsset = {
   id: string
   name: string
   width: number
+  format: "png" | "gif"
+  revision: string
+  source: "builtin" | "uploaded"
   height: number
   bytes: number
   created_at: string
@@ -256,6 +225,9 @@ export const parseUploadedIconAsset = (raw: unknown): UploadedIconAsset => {
     typeof item.name !== "string" ||
     !item.name.trim() ||
     item.name.length > 160 ||
+    (item.format !== "png" && item.format !== "gif") ||
+    (item.source !== "builtin" && item.source !== "uploaded") ||
+    typeof item.revision !== "string" || !/^[a-f0-9]{64}$/.test(item.revision) ||
     /[\u0000-\u001f\u007f]/.test(item.name) ||
     item.width !== 256 ||
     item.height !== 256 ||
@@ -270,6 +242,9 @@ export const parseUploadedIconAsset = (raw: unknown): UploadedIconAsset => {
   return {
     id: item.id,
     name: item.name,
+    format: item.format,
+    revision: item.revision,
+    source: item.source,
     width: item.width,
     height: item.height,
     bytes: item.bytes,
@@ -286,36 +261,25 @@ export const parseUploadedIconCatalog = (raw: unknown): UploadedIconAsset[] => {
 }
 export type IconLibraryCatalog = {
   assets: UploadedIconAsset[]
-  hidden_builtins: string[]
 }
 export const parseIconLibraryCatalog = (raw: unknown): IconLibraryCatalog => {
   if (!raw || typeof raw !== "object" || Array.isArray(raw))
     throw new Error("素材库信息无效")
   const data = raw as {
     assets?: unknown
-    hidden_builtins?: unknown
     version?: number
   }
-  if (
-    data.version !== 1 ||
-    !Array.isArray(data.hidden_builtins) ||
-    data.hidden_builtins.length > ICON_ASSET_IDS.size ||
-    data.hidden_builtins.some(
-      (id) => typeof id !== "string" || !ICON_ASSET_IDS.has(id),
-    ) ||
-    new Set(data.hidden_builtins).size !== data.hidden_builtins.length
-  )
+  if (data.version !== 1)
     throw new Error("素材库信息无效")
   return {
     assets: parseUploadedIconCatalog(data.assets),
-    hidden_builtins: [...data.hidden_builtins],
   }
 }
 export const iconUploadFileError = (file: {
   name: string
   size: number
 }): string => {
-  if (!/\.png$/i.test(file.name)) return "只允许上传 PNG 格式，不支持动画 PNG。"
+  if (!/\.(png|gif)$/i.test(file.name)) return "只允许上传 PNG 或 GIF 格式，不支持动画 PNG。"
   if (
     !Number.isFinite(file.size) ||
     !Number.isInteger(file.size) ||
@@ -352,7 +316,7 @@ export const normalizeIconConfig = (raw: unknown): IconConfig => {
     if (
       knownTargets.has(target) &&
       typeof asset === "string" &&
-      (asset === DEFAULT_ICON || isKnownIconAssetId(asset))
+      (asset === DEFAULT_ICON || isUploadedIconId(asset))
     ) {
       clean.selections[target] = asset
     }
@@ -384,13 +348,12 @@ export const assertIconAssetsAvailable = (
 ): void => {
   const safe = strictIconConfig(config)
   const uploaded = new Set(catalog.assets.map((asset) => asset.id))
-  const hidden = new Set(catalog.hidden_builtins)
   const unavailable = ICON_TARGETS.filter((target) => {
     const id = safe.selections[target.id]
     return (
       id &&
       id !== DEFAULT_ICON &&
-      (isUploadedIconId(id) ? !uploaded.has(id) : hidden.has(id))
+      !uploaded.has(id)
     )
   })
   if (unavailable.length) {
@@ -410,15 +373,6 @@ export const canonicalIconConfig = (raw: unknown): string => {
     ),
   })
 }
-export const recommendedIconConfig = (): IconConfig => ({
-  version: 1,
-  selections: Object.fromEntries(
-    ICON_TARGETS.filter((target) => target.recommended).map((target) => [
-      target.id,
-      target.recommended!,
-    ]),
-  ),
-})
 export const iconTargetId = (type: number, name: string): string => {
   if (type === 1) return "folder"
   const dot = name.lastIndexOf(".")
@@ -503,7 +457,7 @@ export const selectIconForTarget = (
   if (
     value !== "inherit" &&
     value !== DEFAULT_ICON &&
-    !isKnownIconAssetId(value)
+    !isUploadedIconId(value)
   )
     throw new Error("Unknown icon asset")
   if (value === "inherit" && !iconCanInherit(target))
@@ -570,7 +524,7 @@ export const filterIconManagerTargets = (
         .includes(keyword)
     if (group === "all") return true
     if (group === "common")
-      return !target.id.startsWith("ext:") || !!target.recommended
+      return !target.id.startsWith("ext:") || ["pdf", "doc", "docx", "xlsx", "mp3", "mp4", "jpg", "zip", "txt"].some(ext => target.id === `ext:${ext}`)
     return target.group === group
   })
 }
@@ -591,10 +545,7 @@ export const readIconConfig = (head: string): IconConfig => {
       return defaultIconConfig()
     }
   }
-  const old = head.match(legacyBlock)?.at(-1)
-  return old?.includes('"smile"')
-    ? { version: 1, selections: { folder: "legacy-smile" } }
-    : defaultIconConfig()
+  return defaultIconConfig()
 }
 export const writeIconConfig = (head: string, raw: unknown): string => {
   const config = strictIconConfig(raw)

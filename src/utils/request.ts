@@ -27,12 +27,14 @@ instance.interceptors.request.use(
 instance.interceptors.response.use(
   (response) => {
     const resp = response.data
-    log(resp)
+    if (response.config.url !== "/admin/derivatives/backup") log(resp)
     return resp
   },
   (error) => {
     // response error
-    console.error(error) // for debug
+    if (!["/admin/derivatives/backup", "/admin/derivatives/restore"].includes(error.config?.url)) {
+      console.error(error) // for debug
+    }
     // notificationService.show({
     //   status: "danger",
     //   title: error.code,

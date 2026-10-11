@@ -50,6 +50,7 @@ export const mountBackgroundPriority = (layer: HTMLDivElement) => {
     // app's global same-origin referrer policy otherwise omits it entirely.
     image.referrerPolicy = "strict-origin-when-cross-origin"
     image.loading = "eager"
+    image.fetchPriority = "low"
     image.draggable = false
     layer.dataset.backgroundState = "loading"
     image.onload = () => {
@@ -81,7 +82,7 @@ export const mountBackgroundPriority = (layer: HTMLDivElement) => {
       for (const { element } of saved) set(element, "background-image", "none")
       set(layer, "background-image", "none")
       set(layer, "display", "block")
-      if (requestedUrl !== configuredBackground) loadImage(configuredBackground)
+      if (window.__openlistPrimaryReady && requestedUrl !== configuredBackground) loadImage(configuredBackground)
     } else {
       release()
       set(layer, "display", "none")
@@ -96,11 +97,13 @@ export const mountBackgroundPriority = (layer: HTMLDivElement) => {
     layer.dataset.backgroundSource = active ? "settings" : "custom"
   }
   window.addEventListener(updateEvent, update)
+  window.addEventListener("openlist:primary-ready", update, { once: true })
   update()
   return () => {
     disposed = true
     ++generation
     window.removeEventListener(updateEvent, update)
+    window.removeEventListener("openlist:primary-ready", update)
     release()
     layer.replaceChildren()
     layer.style.removeProperty("background-image")

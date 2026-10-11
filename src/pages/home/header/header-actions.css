@@ -34,6 +34,22 @@
   font-weight: 700;
   box-shadow: inset 3px 0 0 currentColor;
 }
+.header-layout-menu .hope-menu__item[aria-checked="false"] {
+  background-color: transparent !important;
+}
+.header-layout-menu .hope-menu__item[aria-checked="true"] {
+  background-color: var(--hope-colors-neutral4) !important;
+}
+html.openlist-glass-home .header-layout-menu .hope-menu__item[aria-checked="false"] {
+  background-color: transparent !important;
+}
+html.openlist-glass-home .header-layout-menu .hope-menu__item[aria-checked="true"] {
+  background-color: rgba(var(--glass-accent), 0.18) !important;
+}
+html:has(.header-layout:focus-visible) .header-layout-menu .hope-menu__item[data-active] {
+  outline: 1px dashed currentColor;
+  outline-offset: -4px;
+}
 @media (max-width: 640px), (pointer: coarse) {
   .header .header-action {
     width: 44px;

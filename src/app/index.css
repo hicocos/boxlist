@@ -1,3 +1,33 @@
+/* Native controls must follow the surrounding theme unless explicitly styled. */
+:where(button, input, optgroup, select, textarea) {
+  color: inherit;
+}
+
+.hope-ui-dark {
+  color-scheme: dark;
+}
+
+.hope-ui-light {
+  color-scheme: light;
+}
+:where(input, textarea)::placeholder {
+  color: var(--hope-colors-neutral11);
+  opacity: 1;
+}
+
+.hope-select__trigger .hope-select__placeholder {
+  color: var(--hope-colors-neutral11);
+}
+
+#site-stats .stat-hitokoto {
+  color: var(--hope-colors-info11) !important;
+}
+
+#site-stats .stat-uptime {
+  color: var(--hope-colors-danger11) !important;
+}
+
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

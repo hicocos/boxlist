@@ -27,6 +27,11 @@ type Service struct {
 	deletion  chan struct{}
 	pendingMu sync.Mutex
 	pending   map[string]bool
+	jobsMu    sync.Mutex
+	jobs      map[string]TransparencyJob
+	activeJob string
+	workers   sync.WaitGroup
+	closing   bool
 }
 
 // New opens a private catalog. Only one native Service may own a data root.
@@ -38,9 +43,24 @@ func New(root string, hooks Hooks) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{store: store, hooks: hooks, slots: make(chan struct{}, 2), deletion: make(chan struct{}, 1), pending: map[string]bool{}}, nil
+	if err = store.installSeeds(builtinFiles); err == nil {
+		_, err = store.catalog()
+	}
+	if err != nil {
+		store.close()
+		return nil, err
+	}
+	return &Service{store: store, hooks: hooks, slots: make(chan struct{}, 2), deletion: make(chan struct{}, 1), pending: map[string]bool{}, jobs: map[string]TransparencyJob{}}, nil
 }
-func (s *Service) Close() error { s.mutation.Lock(); defer s.mutation.Unlock(); return s.store.close() }
+func (s *Service) Close() error {
+	s.jobsMu.Lock()
+	s.closing = true
+	s.jobsMu.Unlock()
+	s.workers.Wait()
+	s.mutation.Lock()
+	defer s.mutation.Unlock()
+	return s.store.close()
+}
 func safeMessage(status int) string {
 	switch status {
 	case 400:
@@ -62,9 +82,9 @@ func safeMessage(status int) string {
 	case 411:
 		return "缺少文件长度"
 	case 413:
-		return "文件大小或图片尺寸超出限制"
+		return "文件大小、图片尺寸或动画复杂度超出限制"
 	case 415:
-		return "仅支持 PNG 静态图片和原始请求体"
+		return "仅支持 PNG 静态图片、GIF 图片和原始请求体，文件扩展名须与内容一致"
 	case 417:
 		return "不支持此请求预期"
 	case 422:
@@ -184,12 +204,24 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Service) handle(w http.ResponseWriter, r *http.Request) error {
 	path := r.URL.Path
-	// Never decode aliases, queries, traversal or an absolute-form URL into routes.
-	if r.URL.IsAbs() || r.URL.RawQuery != "" || r.URL.ForceQuery || r.URL.Fragment != "" || r.URL.RawPath != "" || strings.ContainsAny(path, "%\\") || !strings.HasPrefix(path, "/icon/") || strings.Contains(path, "//") || strings.Contains(path, "/../") || strings.Contains(path, "/./") {
+	// Only asset cache-version queries are supported, never route aliases.
+	queryOK := r.URL.RawQuery == ""
+	if r.Method == http.MethodGet && strings.HasPrefix(path, "/icon/assets/") && strings.HasPrefix(r.URL.RawQuery, "v=") {
+		version := strings.TrimPrefix(r.URL.RawQuery, "v=")
+		queryOK = version == "current" || validRevision(version)
+	}
+	if r.URL.IsAbs() || !queryOK || r.URL.ForceQuery || r.URL.Fragment != "" || r.URL.RawPath != "" || strings.ContainsAny(path, "%\\") || !strings.HasPrefix(path, "/icon/") || strings.Contains(path, "//") || strings.Contains(path, "/../") || strings.Contains(path, "/./") {
 		return fault(404)
 	}
 	if err := checkedHeaders(r); err != nil {
 		return err
+	}
+	if strings.HasPrefix(path, "/icon/api/assets/") && strings.HasSuffix(path, "/transparent") {
+		asset := strings.TrimSuffix(strings.TrimPrefix(path, "/icon/api/assets/"), "/transparent")
+		if !validAsset(asset) {
+			return fault(404)
+		}
+		return s.handleTransparency(w, r, asset)
 	}
 	if r.Method == http.MethodGet {
 		if r.ContentLength != 0 || (r.Header.Get("Content-Length") != "" && r.Header.Get("Content-Length") != "0") || r.Header.Get("Expect") != "" {
@@ -207,20 +239,43 @@ func (s *Service) handle(w http.ResponseWriter, r *http.Request) error {
 			reply(w, 200, map[string]any{"code": 200, "data": catalog})
 			return nil
 		}
-		if strings.HasPrefix(path, "/icon/assets/") && strings.HasSuffix(path, ".webp") {
-			id := strings.TrimSuffix(strings.TrimPrefix(path, "/icon/assets/"), ".webp")
+		if strings.HasPrefix(path, "/icon/assets/") {
+			id := strings.TrimPrefix(path, "/icon/assets/")
+			requestedSuffix := ""
+			for _, suffix := range []string{".webp", ".gif"} {
+				if strings.HasSuffix(id, suffix) {
+					id = strings.TrimSuffix(id, suffix)
+					requestedSuffix = suffix
+					break
+				}
+			}
 			if !assetPattern.MatchString(id) {
 				return fault(404)
 			}
-			data, err := s.store.preview(id)
+			data, suffix, err := s.store.preview(id)
 			if err != nil {
 				return err
 			}
-			w.Header().Set("Content-Type", "image/webp")
-			w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			if requestedSuffix != "" && requestedSuffix != suffix {
+				return fault(404)
+			}
+			contentType := "image/webp"
+			if suffix == ".gif" {
+				contentType = "image/gif"
+			}
+			w.Header().Set("Content-Type", contentType)
+			w.Header().Set("Cache-Control", "no-cache")
 			w.Header().Set("X-Content-Type-Options", "nosniff")
-			w.Header().Set("ETag", `"`+id+`"`)
+			etag := `"` + contentRevision(data) + `"`
+			w.Header().Set("ETag", etag)
+			for _, candidate := range strings.Split(r.Header.Get("If-None-Match"), ",") {
+				candidate = strings.TrimSpace(candidate)
+				if candidate == "*" || strings.TrimPrefix(candidate, "W/") == etag {
+					w.WriteHeader(http.StatusNotModified)
+					return nil
+				}
+			}
+			w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 			w.WriteHeader(200)
 			_, _ = w.Write(data)
 			return nil
@@ -311,7 +366,7 @@ func (s *Service) handle(w http.ResponseWriter, r *http.Request) error {
 			return err
 		}
 		if !exists {
-			preview, err := ConvertPNG(body)
+			preview, err := ConvertImage(name, body)
 			if err != nil {
 				return err
 			}
@@ -372,8 +427,12 @@ func (s *Service) handle(w http.ResponseWriter, r *http.Request) error {
 	if err = s.store.delete(asset); err != nil {
 		return err
 	}
+	var builtin bool
+	if err = s.store.db.QueryRow("SELECT EXISTS (SELECT 1 FROM builtin_seeds WHERE asset_id=?)", asset).Scan(&builtin); err != nil {
+		return fault(503)
+	}
 	kind := "uploaded"
-	if builtinIDs[asset] {
+	if builtin {
 		kind = "builtin"
 	}
 	reply(w, 200, map[string]any{"code": 200, "data": map[string]any{"id": asset, "kind": kind, "removed": true}})

@@ -1,3 +1,4 @@
+import { iconFormatLabel } from "./icon-format"
 import {
   createEffect,
   createMemo,
@@ -17,7 +18,6 @@ import {
   uploadedIconAssets,
   publishUploadedIconAssets,
   addUploadedIconAsset,
-  setHiddenBuiltinIcons,
 } from "~/utils/icon-assets"
 import { uxText } from "~/utils/ux"
 import {
@@ -51,7 +51,6 @@ export const IconUploader = (props: {
   busy: (value: boolean) => void
   unfinished?: (value: boolean) => void
   previewControl?: (open: boolean, close: () => void) => void
-  libraryControl?: (from: HTMLButtonElement) => void
   catalogLoading?: (value: boolean) => void
 }) => {
   const adapter = () => props.adapter ?? iconLibraryAdapter
@@ -62,6 +61,8 @@ export const IconUploader = (props: {
   const [message, setMessage] = createSignal("")
   const [preview, setPreview] = createSignal<UploadedIconAsset>()
   const [previewFailed, setPreviewFailed] = createSignal(false)
+  const [dragging, setDragging] = createSignal(false)
+  let dragDepth = 0
   let picker!: HTMLInputElement
   let dialog!: HTMLDialogElement
   let previewImage!: HTMLImageElement
@@ -94,7 +95,6 @@ export const IconUploader = (props: {
       const catalog = await adapter().load(controller.signal)
       if (active && !controller.signal.aborted) {
         publishUploadedIconAssets(catalog.assets)
-        setHiddenBuiltinIcons(catalog.hidden_builtins)
       }
     } catch (cause) {
       if (active && !controller.signal.aborted)
@@ -112,10 +112,12 @@ export const IconUploader = (props: {
   onMount(() => {
     void loadCatalog()
   })
-  const run = async () => {
+  const run = async (requestId?: string) => {
     if (uploading() || catalogBusy() || props.disabled || !pending()) return
     const work = jobs().filter(
-      (job) => job.state === "queued" || job.state === "error",
+      (job) =>
+        (job.state === "queued" || job.state === "error") &&
+        (!requestId || job.id === requestId),
     )
     stopped = false
     setUploading(true)
@@ -160,8 +162,8 @@ export const IconUploader = (props: {
                 "Unfinished tasks remain. Retry the original tasks or refresh the library to verify. Tasks exist only on this page; resolve them before leaving.",
               )
             : uxText(
-                "已上传素材已加入素材库；到类型卡片中选用，再保存更改。",
-                "Uploaded assets were added to the library. Choose them on a type card, then save changes.",
+                "已加入素材库。打开素材详情，选择文件类型后加入待保存。",
+                "Added to the library. Open asset details, choose file types, then stage your changes.",
               ),
         )
     } finally {
@@ -265,33 +267,46 @@ export const IconUploader = (props: {
       class="im-upload"
       aria-label={uxText("上传图标素材", "Upload icon assets")}
       aria-busy={uploading()}
+      data-dragging={dragging()}
+      onDragEnter={(event) => {
+        if (!event.dataTransfer?.types.includes("Files")) return
+        event.preventDefault()
+        dragDepth += 1
+        if (!props.disabled && !uploading() && !catalogBusy()) setDragging(true)
+      }}
+      onDragOver={(event) => {
+        if (!event.dataTransfer?.types.includes("Files")) return
+        event.preventDefault()
+        event.dataTransfer.dropEffect =
+          props.disabled || uploading() || catalogBusy() ? "none" : "copy"
+      }}
+      onDragLeave={() => {
+        dragDepth = Math.max(0, dragDepth - 1)
+        if (!dragDepth) setDragging(false)
+      }}
+      onDrop={(event) => {
+        event.preventDefault()
+        dragDepth = 0
+        setDragging(false)
+        chooseFiles(Array.from(event.dataTransfer?.files ?? []))
+      }}
     >
       <header class="im-upload-heading">
         <div>
-          <strong>{uxText("我的图标", "My icons")}</strong>
+          <strong>{uxText("上传素材", "Upload assets")}</strong>
           <small>
-            {uxText(
-              `${uploadedIconAssets().length} 张已上传`,
-              `${uploadedIconAssets().length} uploaded`,
-            )}
+            {uxText("拖入 PNG / GIF，或选择文件", "Drop PNG / GIF here, or choose files")}
           </small>
         </div>
         <div class="im-upload-actions">
           <button
             type="button"
             disabled={props.disabled || uploading() || catalogBusy()}
-            onClick={(event) => props.libraryControl?.(event.currentTarget)}
-            data-action="manage-library"
-          >
-            {uxText("管理素材", "Manage assets")}
-          </button>
-          <button
-            type="button"
-            disabled={props.disabled || uploading() || catalogBusy()}
             onClick={() => picker.click()}
+            class="im-primary"
             data-action="upload-icons"
           >
-            {uxText("上传图标", "Upload icons")}
+            {uxText("选择文件", "Choose files")}
           </button>
           <button
             type="button"
@@ -309,7 +324,7 @@ export const IconUploader = (props: {
         ref={picker}
         class="im-upload-file"
         type="file"
-        accept=".png,image/png"
+        accept=".png,.gif,image/png,image/gif"
         multiple
         tabIndex={-1}
         hidden
@@ -320,12 +335,20 @@ export const IconUploader = (props: {
           chooseFiles(files)
         }}
       />
-      <p class="im-upload-rule">
-        {uxText(
-          "仅限 PNG，每张不超过 5 MB，不支持动画 PNG。可多选，自动保留透明背景、等比整理；上传不会自动替换站点图标。",
-          "PNG only, up to 5 MB each; animated PNG is not supported. Multiple files accepted; transparency and proportions preserved. Uploading does not change site icons.",
-        )}
-      </p>
+      <div class="im-upload-rule">
+        <span>
+          {uxText("每张 ≤ 5 MB · 每批 ≤ 20 张", "Up to 5 MB each · 20 files per batch")}
+        </span>
+        <details class="im-upload-limits">
+          <summary>{uxText("格式说明", "Format details")}</summary>
+          <p>
+            {uxText(
+              "PNG 支持透明背景，不支持动画 PNG；GIF 保留动画，最多 2000 帧。上传后还需分配文件类型并保存。",
+              "PNG supports transparency, but not animated PNG. GIF animation is preserved, up to 2000 frames. Assign file types and save after uploading.",
+            )}
+          </p>
+        </details>
+      </div>
       <Show when={catalogError()}>
         <p class="im-error" role="alert">
           {catalogError()}
@@ -347,7 +370,12 @@ export const IconUploader = (props: {
             <For each={jobs()}>
               {(job) => (
                 <li data-upload-state={job.state}>
-                  <span>{job.file.name}</span>
+                  <span class="im-upload-job-main">
+                    <strong>{job.file.name}</strong>
+                    <small>
+                      {iconFormatLabel(job.file.name)} · {(job.file.size / 1024 / 1024).toFixed(2)} MB
+                    </small>
+                  </span>
                   <small>
                     {job.state === "done"
                       ? uxText("已上传", "Uploaded")
@@ -357,6 +385,23 @@ export const IconUploader = (props: {
                           ? uxText("待上传", "Queued")
                           : job.message}
                   </small>
+                  <Show when={job.state === "uploading"}>
+                    <progress
+                      value={job.percent}
+                      max="100"
+                      aria-label={uxText(`上传 ${job.file.name}`, `Uploading ${job.file.name}`)}
+                    />
+                  </Show>
+                  <Show when={job.state === "error"}>
+                    <button
+                      type="button"
+                      disabled={props.disabled || uploading() || catalogBusy()}
+                      onClick={() => void run(job.id)}
+                      aria-label={uxText(`重试 ${job.file.name}`, `Retry ${job.file.name}`)}
+                    >
+                      {uxText("重试", "Retry")}
+                    </button>
+                  </Show>
                   <Show when={job.asset}>
                     <button
                       type="button"
@@ -375,6 +420,7 @@ export const IconUploader = (props: {
               )}
             </For>
           </ol>
+          <div class="im-upload-queue-actions">
           <Show
             when={uploading()}
             fallback={
@@ -411,6 +457,7 @@ export const IconUploader = (props: {
               {uxText("清除任务", "Clear tasks")}
             </button>
           </Show>
+          </div>
         </details>
       </Show>
       <Show when={message()}>
@@ -435,6 +482,7 @@ export const IconUploader = (props: {
           }}
         >
           <h2>{preview()?.name}</h2>
+          <p>{preview() ? iconFormatLabel(preview()!.name, preview()!.source) : ""}</p>
           <img
             ref={previewImage}
             src={previewURL()}
@@ -454,8 +502,8 @@ export const IconUploader = (props: {
           </Show>
           <p>
             {uxText(
-              "已加入素材库，点击类型卡片即可选用。",
-              "Added to your library; open a type card to use it.",
+              "已加入素材库，可在素材详情中分配文件类型。",
+              "Added to your library. Assign file types from the asset details.",
             )}
           </p>
           <button type="button" class="im-primary" onClick={closePreview}>

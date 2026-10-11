@@ -36,13 +36,8 @@ func fault(status int) error  { return Fault{status, safeMessage(status)} }
 var requestPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
 var assetPattern = regexp.MustCompile(`^upload-[0-9a-f]{32}$`)
 var identityPattern = regexp.MustCompile(`^[1-9][0-9]{0,19}$`)
-var builtinIDs = map[string]bool{
-	"pack-cab": true, "pack-doc": true, "pack-docx": true, "pack-mp3": true, "pack-pdf": true, "pack-ppt": true, "pack-pptx": true,
-	"pack-psd": true, "pack-rar": true, "pack-txt": true, "pack-wav": true, "pack-wma": true, "pack-xlsx": true, "pack-zip": true,
-	"pack-download": true, "pack-image": true, "pack-folder": true, "pack-document": true, "pack-video": true, "pack-music": true, "legacy-smile": true,
-}
 
-func validAsset(id string) bool { return assetPattern.MatchString(id) || builtinIDs[id] }
+func validAsset(id string) bool { return assetPattern.MatchString(id) }
 func decodeName(raw string) (string, error) {
 	if raw == "" || len(raw) > 3072 {
 		return "", fault(400)
@@ -61,21 +56,33 @@ func decodeName(raw string) (string, error) {
 			return "", fault(400)
 		}
 	}
-	if !strings.HasSuffix(strings.ToLower(name), ".png") {
+	lower := strings.ToLower(name)
+	if !strings.HasSuffix(lower, ".png") && !strings.HasSuffix(lower, ".gif") {
 		return "", fault(415)
 	}
 	return name, nil
 }
 
-// ConvertPNG fully verifies a single static PNG before producing a lossless WebP.
-// It strips metadata, preserves alpha and never scales a small image up.
-func ConvertPNG(data []byte) ([]byte, error) {
+// ConvertImage verifies that the filename and image signature agree. PNGs become
+// lossless 256px WebP previews; validated GIFs retain their original bytes.
+func ConvertImage(name string, data []byte) ([]byte, error) {
 	if len(data) == 0 || len(data) > MaxInputBytes {
 		return nil, fault(413)
 	}
-	if !bytes.HasPrefix(data, []byte("\x89PNG\r\n\x1a\n")) {
+	lower := strings.ToLower(name)
+	switch {
+	case strings.HasSuffix(lower, ".png") && bytes.HasPrefix(data, []byte("\x89PNG\r\n\x1a\n")):
+		return convertPNG(data)
+	case strings.HasSuffix(lower, ".gif") && (bytes.HasPrefix(data, []byte("GIF87a")) || bytes.HasPrefix(data, []byte("GIF89a"))):
+		return validateGIF(data)
+	default:
 		return nil, fault(415)
 	}
+}
+
+// decodePNG fully verifies a bounded single static PNG and its orientation.
+// APNG remains unsupported.
+func decodePNG(data []byte) (image.Image, error) {
 	if len(data) < 33 || !bytes.Equal(data[8:16], []byte{0, 0, 0, 13, 'I', 'H', 'D', 'R'}) {
 		return nil, fault(422)
 	}
@@ -140,6 +147,26 @@ func ConvertPNG(data []byte) ([]byte, error) {
 	case 8:
 		img = imaging.Rotate90(img)
 	}
+	return img, nil
+}
+
+// convertPNG preserves orientation, alpha and no-upscaling behavior.
+func convertPNG(data []byte) ([]byte, error) {
+	img, err := decodePNG(data)
+	if err != nil {
+		return nil, err
+	}
+	var out bytes.Buffer
+	if err = nativewebp.Encode(&out, previewCanvas(img), &nativewebp.Options{CompressionLevel: nativewebp.DefaultCompression}); err != nil {
+		return nil, fault(422)
+	}
+	if out.Len() > MaxInputBytes {
+		return nil, fault(413)
+	}
+	return out.Bytes(), nil
+}
+
+func previewCanvas(img image.Image) *image.NRGBA {
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 	if width > 232 || height > 232 {
 		img = imaging.Fit(img, 232, 232, imaging.Lanczos)
@@ -147,9 +174,5 @@ func ConvertPNG(data []byte) ([]byte, error) {
 	}
 	canvas := image.NewNRGBA(image.Rect(0, 0, 256, 256))
 	draw.Draw(canvas, image.Rect((256-width)/2, (256-height)/2, (256-width)/2+width, (256-height)/2+height), img, img.Bounds().Min, draw.Src)
-	var out bytes.Buffer
-	if err = nativewebp.Encode(&out, canvas, &nativewebp.Options{CompressionLevel: nativewebp.DefaultCompression}); err != nil {
-		return nil, fault(422)
-	}
-	return out.Bytes(), nil
+	return canvas
 }

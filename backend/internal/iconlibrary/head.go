@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/url"
-	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -12,7 +11,7 @@ import (
 )
 
 // HeadReferences parses native customize_head without executing HTML or scripts.
-// Unknown/ambiguous configuration fails closed; callers must not delete on error.
+// Removed selections fall back to default; malformed configuration fails closed.
 func HeadReferences(head string) (map[string]bool, error) {
 	bad := func() (map[string]bool, error) { return nil, fault(502) }
 	if len(head) > 1024*1024 || !utf8.ValidString(head) {
@@ -85,52 +84,18 @@ func HeadReferences(head string) (map[string]bool, error) {
 		}
 		for _, raw := range selections {
 			value, ok := raw.(string)
-			if !ok || (!validAsset(value) && value != "default") {
+			if !ok {
 				return bad()
 			}
-			refs[value] = true
+			if validAsset(value) {
+				refs[value] = true
+			}
 		}
 	} else if strings.Contains(head, "OPENLIST-ICON-THEME") || strings.Contains(head, "openlist-icon-config") {
 		return bad()
 	}
-	if strings.Contains(head, "OPENLIST-FOLDER-ICON") || strings.Contains(head, "OPENLIST_FOLDER_ICON_STYLE") {
-		blocks := legacyBlock.FindAllString(head, -1)
-		if len(blocks) == 0 {
-			return bad()
-		}
-		// Reject markers or assignments outside managed legacy blocks as ambiguous.
-		remainder := legacyBlock.ReplaceAllString(head, "")
-		if strings.Contains(remainder, "OPENLIST-FOLDER-ICON") || strings.Contains(remainder, "OPENLIST_FOLDER_ICON_STYLE") {
-			return bad()
-		}
-		for _, block := range blocks {
-			matches := legacyAssignment.FindAllStringSubmatch(block, -1)
-			if len(matches) == 0 {
-				return bad()
-			}
-			if len(matches) != strings.Count(block, "OPENLIST_FOLDER_ICON_STYLE") {
-				return bad()
-			}
-			for _, m := range matches {
-				value := m[1]
-				if value == "" {
-					value = m[2]
-				}
-				switch value {
-				case "smile":
-					refs["legacy-smile"] = true
-				case "default", "native":
-				default:
-					return bad()
-				}
-			}
-		}
-	}
 	return refs, nil
 }
-
-var legacyBlock = regexp.MustCompile(`(?s)<!-- OPENLIST-FOLDER-ICON-START -->.*?<!-- OPENLIST-FOLDER-ICON-END -->`)
-var legacyAssignment = regexp.MustCompile(`OPENLIST_FOLDER_ICON_STYLE\s*=\s*(?:"([^"']*)"|'([^"']*)')`)
 
 func uniqueValue(d *json.Decoder, depth int) (any, error) {
 	if depth > 64 {

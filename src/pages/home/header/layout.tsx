@@ -51,7 +51,7 @@ export const Layout = () => {
           </Switch>
         }
       ></MenuTrigger>
-      <MenuContent>
+      <MenuContent class="header-layout-menu">
         <For each={Object.entries(layouts)}>
           {(item) => (
             <MenuItem

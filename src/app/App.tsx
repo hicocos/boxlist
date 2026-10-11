@@ -1,5 +1,5 @@
 import { Progress, ProgressIndicator } from "@hope-ui/solid"
-import { Route, Routes, useIsRouting } from "@solidjs/router"
+import { Outlet, Route, Routes, useIsRouting } from "@solidjs/router"
 import {
   Component,
   createEffect,
@@ -11,10 +11,10 @@ import {
   Switch,
 } from "solid-js"
 import { Portal } from "solid-js/web"
-import { Error, FullScreenLoading } from "~/components"
+import { Error } from "~/components"
 import { useLoading, useRouter, useT } from "~/hooks"
 import { setSettings } from "~/store"
-import { setArchiveExtensions } from "~/store/archive"
+import { loadArchiveExtensions } from "~/store/archive"
 import { Resp } from "~/types"
 import { base_path, bus, handleRespWithoutAuthAndNotify, r } from "~/utils"
 import { MustUser, UserOrGuest } from "./MustUser"
@@ -26,11 +26,11 @@ import {
   mountBackgroundPriority,
   refreshBackgroundPriority,
 } from "./background-priority"
+import { FullScreenLoading } from "~/components/FullLoading"
 
 const Home = lazy(() => import("~/pages/home/Layout"))
 const Manage = lazy(() => import("~/pages/manage"))
 const Login = lazy(() => import("~/pages/login"))
-const Test = lazy(() => import("~/pages/test"))
 const Reader = lazy(() => import("~/pages/reader/Reader"))
 
 const App: Component = () => {
@@ -42,6 +42,9 @@ const App: Component = () => {
   let backgroundLayer!: HTMLDivElement
   onMount(() => {
     onCleanup(mountBackgroundPriority(backgroundLayer))
+    const loadArchives = () => { void loadArchiveExtensions().catch(console.warn) }
+    window.addEventListener("openlist:primary-ready", loadArchives, { once: true })
+    onCleanup(() => window.removeEventListener("openlist:primary-ready", loadArchives))
   })
   onCleanup(listenForHomeGlassSettings())
   const onTo = (path: string) => {
@@ -66,24 +69,18 @@ const App: Component = () => {
   })
 
   const [err, setErr] = createSignal<string[]>([])
-  const [loading, data] = useLoading(() =>
-    Promise.all([
-      (async () => {
-        handleRespWithoutAuthAndNotify(
-          (await r.get("/public/settings")) as Resp<Record<string, string>>,
-          setSettings,
-          (e) => setErr(err().concat(e)),
-        )
-      })(),
-      (async () => {
-        handleRespWithoutAuthAndNotify(
-          (await r.get("/public/archive_extensions")) as Resp<string[]>,
-          setArchiveExtensions,
-          (e) => setErr(err().concat(e)),
-        )
-      })(),
-    ]),
-  )
+  const [loading, data] = useLoading(async () => {
+    setErr([])
+    try {
+      handleRespWithoutAuthAndNotify(
+        (await r.get("/public/settings")) as Resp<Record<string, string>>,
+        setSettings,
+        (e) => setErr([e]),
+      )
+    } catch {
+      setErr(["连接失败，请检查网络后重试。"])
+    }
+  })
   data()
   return (
     <>
@@ -105,16 +102,7 @@ const App: Component = () => {
       <Switch
         fallback={
           <Routes base={base_path}>
-            <Route path="/@test" component={Test} />
             <Route path="/@login" component={Login} />
-            <Route
-              path="/@reader"
-              element={
-                <MustUser>
-                  <Reader />
-                </MustUser>
-              }
-            />
             <Route
               path="/@manage/*"
               element={
@@ -131,20 +119,26 @@ const App: Component = () => {
                 </UserOrGuest>
               }
             />
+            {/* Keep the identity boundary mounted across directory/reader navigation.
+                Separate guards replaced the page with a full-screen /me loader. */}
             <Route
-              path="*"
+              path="/"
               element={
                 <MustUser>
-                  <Home />
+                  <Outlet />
                 </MustUser>
               }
-            />
+            >
+              <Route path="/@reader" component={Reader} />
+              <Route path="*" component={Home} />
+            </Route>
           </Routes>
         }
       >
         <Match when={err().length > 0}>
+          <div>
           <Error
-            h="100vh"
+            h="60vh"
             msg={
               t("home.fetching_settings_failed") +
               err()
@@ -152,6 +146,8 @@ const App: Component = () => {
                 .join(", ")
             }
           />
+          <button type="button" onClick={() => void data()}>重试</button>
+          </div>
         </Match>
         <Match when={loading()}>
           <FullScreenLoading />

@@ -1,11 +1,13 @@
 import { Box, Grid, Text } from "@hope-ui/solid"
-import { For, Show } from "solid-js"
+import { For, Show, onMount } from "solid-js"
 import { GridItem } from "./GridItem"
 import "lightgallery/css/lightgallery-bundle.css"
 import { smartCountMsg, local, objStore } from "~/store"
 import { useSelectWithMouse } from "./helper"
+import { markPrimaryReady } from "~/app/primary-ready"
 
 const GridLayout = () => {
+  onMount(markPrimaryReady)
   const { isMouseSupported, registerSelectContainer, captureContentMenu } =
     useSelectWithMouse()
   registerSelectContainer()

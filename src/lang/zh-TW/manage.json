@@ -30,7 +30,7 @@
     "ftp": "FTP",
     "traffic": "傳輸"
   },
-  "title": "OpenList 管理",
+  "title": "BoxList 管理",
   "not_admin": "您不是管理員用户，請使用管理員賬户登錄。",
   "logout_success": "登出成功",
   "send": "發送",

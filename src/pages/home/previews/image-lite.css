@@ -21,7 +21,7 @@
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: #52718f;
+  color: var(--hope-colors-info11, inherit);
   box-shadow: none;
   cursor: pointer;
   transition:
@@ -29,20 +29,20 @@
     box-shadow 120ms ease;
 }
 .image-lite-toolbar button:not(:disabled):hover {
-  background: rgb(82 113 143 / 8%);
+  background: var(--hope-colors-info3, rgb(82 113 143 / 8%));
   box-shadow: none;
 }
 .image-lite-toolbar button:not(:disabled):active {
-  background: rgb(82 113 143 / 14%);
+  background: var(--hope-colors-info4, rgb(82 113 143 / 14%));
 }
 .image-lite-toolbar button:disabled {
-  opacity: 0.35;
+  opacity: 0.5;
   box-shadow: none;
   cursor: default;
 }
 .image-lite-toolbar button:focus-visible,
 .image-lite-stage:focus-visible {
-  outline: 2px solid #1890ff;
+  outline: 2px solid var(--hope-colors-info9, currentColor);
   outline-offset: -2px;
 }
 .image-lite-name {
@@ -103,7 +103,7 @@
 .image-lite-error button,
 .image-lite-error a {
   margin-left: 12px;
-  color: #1890ff;
+  color: var(--hope-colors-info11, inherit);
   cursor: pointer;
 }
 .openlist-image-lite-dialog {

@@ -10,7 +10,7 @@ import { useReducedMotion } from "~/hooks/useReducedMotion"
 import { uxText } from "~/utils/ux"
 import { RightIcon } from "./Icon"
 import { CgMoreO } from "solid-icons/cg"
-import { FiSun, FiMoon } from "solid-icons/fi"
+import { FiSun, FiMoon, FiImage } from "solid-icons/fi"
 import { TbCheckbox } from "solid-icons/tb"
 import {
   checkboxOpen,
@@ -27,13 +27,14 @@ import { operations } from "./operations"
 import { IoMagnetOutline } from "solid-icons/io"
 import { AiOutlineCloudUpload, AiOutlineSetting } from "solid-icons/ai"
 import { RiSystemRefreshLine } from "solid-icons/ri"
-import { usePath, useRouter } from "~/hooks"
+import { usePath, useRouter, useT } from "~/hooks"
 import { Motion } from "solid-motionone"
 import { isTocVisible, setTocDisabled } from "~/components"
 import { BiSolidBookContent } from "solid-icons/bi"
 
 export const Right = () => {
   const reducedMotion = useReducedMotion()
+  const t = useT()
   const actionsId = `toolbar-actions-${createUniqueId()}`
   let toggleButton: HTMLButtonElement | undefined
   const { toggleColorMode } = useColorMode()
@@ -237,6 +238,9 @@ export const Right = () => {
                   bus.emit("tool", "offline_download")
                 }}
               />
+            </Show>
+            <Show when={isFolder() && !isShare() && UserMethods.is_admin(me())}>
+              <RightIcon as={FiImage} name="generate_derivatives" aria-label={t("derivatives.generate")} aria-haspopup="dialog" onClick={() => bus.emit("tool", "generate_derivatives")} />
             </Show>
             <Show when={isTocVisible()}>
               <RightIcon

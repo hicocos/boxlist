@@ -124,6 +124,12 @@ export const side_menu_items: SideMenuItem[] = [
     role: UserRole.GENERAL,
     children: [
       {
+        title: "derivatives.title",
+        icon: BsImages,
+        to: "/@manage/tasks/derivatives",
+        component: lazy(() => import("./tasks/Derivatives")),
+      },
+      {
         title: "manage.sidemenu.offline_download",
         icon: IoMagnetOutline,
         to: "/@manage/tasks/offline_download",

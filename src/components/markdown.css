@@ -24,7 +24,7 @@
 .markdown-body h4 .octicon-link,
 .markdown-body h5 .octicon-link,
 .markdown-body h6 .octicon-link {
-  color: #1b1f23;
+  color: inherit;
   vertical-align: middle;
   visibility: hidden;
 }
@@ -1027,13 +1027,10 @@
 /* dark */
 
 .hope-ui-dark .markdown-body {
-  /* color: #c9d1d9; */
-  /* background-color: #0d1117; */
-  color: #f3f4f6;
-  /* background-color: #18181b; */
+  color: var(--hope-colors-neutral12, #f3f4f6);
 }
 .hope-ui-dark .markdown-body a {
-  color: rgba(2, 132, 199);
+  color: var(--hope-colors-info11, #79c0ff);
 }
 .hope-ui-dark .markdown-body hr {
   border-bottom: 1px solid #21262d;
@@ -1118,7 +1115,7 @@
 .hope-ui-dark .markdown-body .pl-mh,
 .hope-ui-dark .markdown-body .pl-mh .pl-en,
 .hope-ui-dark .markdown-body .pl-ms {
-  color: #1f6feb;
+  color: var(--hope-colors-info11, #79c0ff);
 }
 .hope-ui-dark .markdown-body .pl-mi {
   color: #c9d1d9;
@@ -1149,7 +1146,7 @@
   color: #8b949e;
 }
 .hope-ui-dark .markdown-body .pl-sg {
-  color: #484f58;
+  color: var(--hope-colors-neutral11, #8b949e);
 }
 .hope-ui-dark .markdown-body .pl-corl {
   color: #a5d6ff;
@@ -1207,11 +1204,12 @@
   background: #f8f8f8;
 }
 .hope-ui-dark .hljs {
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--hope-colors-neutral12, #f3f4f6);
+  background: var(--hope-colors-neutral3, #1f1f22);
 }
 .hljs-comment,
 .hljs-quote {
-  color: #998;
+  color: var(--hope-colors-neutral11);
   font-style: italic;
 }
 .hljs-keyword,
@@ -1232,9 +1230,16 @@
 .hljs-variable {
   color: teal;
 }
+.hope-ui-dark .hljs-literal,
+.hope-ui-dark .hljs-number,
+.hope-ui-dark .hljs-tag .hljs-attr,
+.hope-ui-dark .hljs-template-variable,
+.hope-ui-dark .hljs-variable {
+  color: var(--hope-colors-info11, #79c0ff);
+}
 .hljs-doctag,
 .hljs-string {
-  color: #d14;
+  color: var(--hope-colors-danger11);
 }
 .hope-ui-dark .hljs-doctag,
 .hope-ui-dark .hljs-string {
@@ -1276,22 +1281,30 @@
 }
 .hljs-link,
 .hljs-regexp {
-  color: #009926;
+  color: var(--hope-colors-success11);
+}
+.hope-ui-dark .hljs-link,
+.hope-ui-dark .hljs-regexp {
+  color: var(--hope-colors-success11, #7ee787);
 }
 .hljs-bullet,
 .hljs-symbol {
   color: #990073;
 }
+.hope-ui-dark .hljs-bullet,
+.hope-ui-dark .hljs-symbol {
+  color: var(--hope-colors-accent11, #d2a8ff);
+}
 .hljs-built_in,
 .hljs-builtin-name {
-  color: #0086b3;
+  color: var(--hope-colors-info11);
 }
 .hope-ui-dark .hljs-built_in,
 .hope-ui-dark .hljs-builtin-name {
   color: #00c5ff;
 }
 .hljs-meta {
-  color: #999;
+  color: var(--hope-colors-neutral11);
   font-weight: 700;
 }
 .hljs-deletion {

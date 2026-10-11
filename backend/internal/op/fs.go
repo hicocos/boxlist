@@ -48,7 +48,7 @@ func list(ctx context.Context, storage driver.Driver, path string, args model.Li
 		}
 	}
 
-	objs, err, _ := listG.Do(key, func() ([]model.Obj, error) {
+	objs, err := doReadWithContext(ctx, &listG, key, func() ([]model.Obj, error) {
 		dir, err := GetUnwrap(ctx, storage, path)
 		if err != nil {
 			return nil, errors.WithMessage(err, "failed get dir")
@@ -57,12 +57,16 @@ func list(ctx context.Context, storage driver.Driver, path string, args model.Li
 		if !dir.IsDir() {
 			return nil, errors.WithStack(errs.NotFolder)
 		}
+		observedAt := time.Now()
 		files, err := storage.List(ctx, dir, args)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to list objs")
 		}
 		// warp obj name
 		wrapObjsName(storage, files)
+		for i := range files {
+			files[i] = model.StampObjObservation(files[i], observedAt)
+		}
 		// sort objs
 		if storage.Config().LocalSort {
 			model.SortFiles(files, storage.GetStorage().OrderBy, storage.GetStorage().OrderDirection)
@@ -270,7 +274,7 @@ func Link(ctx context.Context, storage driver.Driver, path string, args model.Li
 		return ol, nil
 	}
 	for {
-		ol, err, _ := linkG.Do(key+"/"+typeKey, fn)
+		ol, err := doReadWithContext(ctx, &linkG, key+"/"+typeKey, fn)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -411,6 +415,8 @@ func Move(ctx context.Context, storage driver.Driver, srcPath, dstDirPath string
 		return errors.WithStack(err)
 	}
 
+	notifyFileMutation(ctx, storage, srcPath)
+	notifyFileMutation(ctx, storage, stdpath.Join(dstDirPath, srcRawObj.GetName()))
 	srcKey := Key(storage, srcDirPath)
 	dstKey := Key(storage, dstDirPath)
 	if !srcRawObj.IsDir() {
@@ -476,6 +482,8 @@ func Rename(ctx context.Context, storage driver.Driver, srcPath, dstName string)
 		return errors.WithStack(err)
 	}
 
+	notifyFileMutation(ctx, storage, srcPath)
+	notifyFileMutation(ctx, storage, stdpath.Join(stdpath.Dir(srcPath), dstName))
 	dirKey := Key(storage, stdpath.Dir(srcPath))
 	if !srcRawObj.IsDir() {
 		Cache.linkCache.DeleteKey(stdpath.Join(dirKey, oldName))
@@ -545,6 +553,7 @@ func Copy(ctx context.Context, storage driver.Driver, srcPath, dstDirPath string
 		return errors.WithStack(err)
 	}
 
+	notifyFileMutation(ctx, storage, stdpath.Join(dstDirPath, srcRawObj.GetName()))
 	dstKey := Key(storage, dstDirPath)
 	if !srcRawObj.IsDir() {
 		Cache.linkCache.DeleteKey(stdpath.Join(dstKey, srcRawObj.GetName()))
@@ -597,6 +606,7 @@ func Remove(ctx context.Context, storage driver.Driver, path string) error {
 	case driver.Remove:
 		err = s.Remove(ctx, model.UnwrapObjName(rawObj))
 		if err == nil {
+			notifyFileMutation(ctx, storage, path)
 			Cache.removeDirectoryObject(storage, dirPath, rawObj)
 		}
 	default:
@@ -696,6 +706,9 @@ func Put(ctx context.Context, storage driver.Driver, dstDirPath string, file mod
 			go objsUpdateHook(context.WithoutCancel(ctx), storage, dstDirPath, false)
 		}
 	}
+	if err == nil {
+		notifyFileMutation(ctx, storage, dstPath)
+	}
 	log.Debugf("put file [%s] done", file.GetName())
 	if storage.Config().NoOverwriteUpload && fi != nil && fi.GetSize() > 0 {
 		if err != nil {
@@ -763,6 +776,9 @@ func PutURL(ctx context.Context, storage driver.Driver, dstDirPath, dstName, url
 				go objsUpdateHook(context.WithoutCancel(ctx), storage, dstDirPath, false)
 			}
 		}
+	}
+	if err == nil {
+		notifyFileMutation(ctx, storage, dstPath)
 	}
 	log.Debugf("put url [%s](%s) done", dstName, url)
 	return errors.WithStack(err)

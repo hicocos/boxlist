@@ -13,5 +13,6 @@
   "override": "Override",
   "encrypt_password_placeholder": "Leave empty if you don't need encryption",
   "encrypt_password": "Encryption Password",
-  "wrong_encrypt_password": "Wrong encryption password"
+  "wrong_encrypt_password": "Wrong encryption password",
+  "derivatives": "S3 previews"
 }

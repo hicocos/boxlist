@@ -30,6 +30,12 @@
     "exit_fullview": "Exit Full view",
     "auto_fit": "Auto fit",
     "reset_zoom": "Reset zoom",
+    "paged_text": {
+      "pagination": "Text pagination",
+      "previous": "Previous",
+      "next": "Next",
+      "page": "Page"
+    },
     "names": {
       "download": "Direct Download",
       "html": "HTML Render",
@@ -37,6 +43,7 @@
       "markdown": "Markdown Render",
       "flash": "Flash Player",
       "markdown_with_word_wrap": "Markdown Render (with word wrap)",
+      "paged_text": "Paged Text Reader",
       "url_open": "URL Open",
       "text_editor": "Text Editor",
       "image_lite": "Image Viewer",

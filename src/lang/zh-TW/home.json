@@ -30,6 +30,12 @@
     "exit_fullview": "Exit Full view",
     "auto_fit": "Auto fit",
     "reset_zoom": "Reset zoom",
+    "paged_text": {
+      "pagination": "文字分頁",
+      "previous": "上一頁",
+      "next": "下一頁",
+      "page": "頁碼"
+    },
     "names": {
       "download": "直接下載",
       "html": "HTML 渲染器",
@@ -37,6 +43,7 @@
       "markdown": "Markdown 渲染器",
       "flash": "Flash 播放器",
       "markdown_with_word_wrap": "Markdown 渲染器（帶換行）",
+      "paged_text": "分頁文字閱讀器",
       "url_open": "打開網址",
       "text_editor": "文本編輯器",
       "image_lite": "圖像查看器",

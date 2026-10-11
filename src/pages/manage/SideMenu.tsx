@@ -75,7 +75,7 @@ const SideMenuItemWithTo = (props: SideMenuItemProps) => {
       rounded="$md"
       cursor="pointer"
       bgColor={isActive() ? "$info4" : ""}
-      color={isActive() ? "$info11" : ""}
+      color={isActive() ? "$info12" : ""}
       external={props.external}
       // _active={{ transform: "scale(.95)", transition: "0.1s" }}
     >

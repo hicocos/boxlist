@@ -1,8 +1,9 @@
 import { HopeProvider, NotificationsProvider } from "@hope-ui/solid"
 import { ErrorBoundary, Suspense } from "solid-js"
-import { Error, FullScreenLoading } from "~/components"
+import { Error } from "~/components"
 import App from "./App"
 import { globalStyles, theme } from "./theme"
+import { FullScreenLoading } from "~/components/FullLoading"
 
 const Index = () => {
   globalStyles()

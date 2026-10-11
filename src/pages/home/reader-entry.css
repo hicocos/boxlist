@@ -3,16 +3,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 44px;
-  width: 44px;
-  min-width: 44px;
+  flex: 0 0 32px;
+  width: 32px;
+  min-width: 32px;
   height: 44px;
   min-height: 44px;
-  margin-left: 4px;
+  margin-left: 0;
   border: 0;
   padding: 0;
   border-radius: 8px;
-  color: var(--glass-link, #3979bf);
+  color: var(--glass-link, var(--hope-colors-info11, inherit));
   background: transparent;
   cursor: pointer;
   touch-action: manipulation;
@@ -20,8 +20,12 @@
     background-color 0.15s ease,
     transform 0.1s ease;
 }
+.directory-reader-entry {
+  justify-content: flex-start;
+}
 .directory-gallery-entry {
   margin-left: 0;
+  justify-content: flex-end;
 }
 .directory-reader-entry:hover,
 .directory-gallery-entry:hover {

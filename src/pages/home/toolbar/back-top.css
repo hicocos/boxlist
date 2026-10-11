@@ -10,6 +10,7 @@
   border: 1px solid var(--hope-colors-neutral6, #ddd);
   border-radius: 0 0 50% 50%;
   background: var(--hope-colors-background, white);
+  color: var(--hope-colors-neutral12, inherit);
   box-shadow: 0 3px 10px #0002;
   cursor: pointer;
 }

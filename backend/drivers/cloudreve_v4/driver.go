@@ -79,7 +79,6 @@ func (d *CloudreveV4) Drop(ctx context.Context) error {
 func (d *CloudreveV4) List(ctx context.Context, dir model.Obj, args model.ListArgs) ([]model.Obj, error) {
 	const pageSize int = 100
 	var f []File
-	var r FileResp
 	params := map[string]string{
 		"page_size":       strconv.Itoa(pageSize),
 		"uri":             dir.GetPath(),
@@ -88,18 +87,53 @@ func (d *CloudreveV4) List(ctx context.Context, dir model.Obj, args model.ListAr
 		"page":            "0",
 	}
 
+	page := 0
+	cursorMode := false
+	seenTokens := make(map[string]bool)
 	for {
-		err := d.request(http.MethodGet, "/file", func(req *resty.Request) {
+		// A fresh response prevents an omitted final next_token retaining its old value.
+		var r FileResp
+		err := d.requestContext(ctx, http.MethodGet, "/file", func(req *resty.Request) {
 			req.SetQueryParams(params)
 		}, &r)
 		if err != nil {
 			return nil, err
 		}
 		f = append(f, r.Files...)
-		if r.Pagination.NextToken == "" || len(r.Files) < pageSize {
+		if r.Pagination.NextToken != "" {
+			if seenTokens[r.Pagination.NextToken] {
+				return nil, errors.New("Cloudreve returned a repeated pagination token")
+			}
+			seenTokens[r.Pagination.NextToken] = true
+			cursorMode = true
+			params["next_page_token"] = r.Pagination.NextToken
+			continue
+		}
+		if cursorMode || r.Pagination.IsCursor {
 			break
 		}
-		params["next_page_token"] = r.Pagination.NextToken
+		if r.Pagination.Page != page {
+			return nil, errors.New("Cloudreve returned an unexpected page number")
+		}
+		if r.Pagination.TotalItems != nil {
+			if len(f) >= *r.Pagination.TotalItems {
+				break
+			}
+			if len(r.Files) == 0 {
+				return nil, errors.New("Cloudreve returned an empty page before the total was reached")
+			}
+		} else {
+			// Older responses may omit total_items. Respect a server-side page-size cap.
+			effectiveSize := r.Pagination.PageSize
+			if effectiveSize <= 0 {
+				effectiveSize = pageSize
+			}
+			if len(r.Files) < effectiveSize {
+				break
+			}
+		}
+		page++
+		params["page"] = strconv.Itoa(page)
 	}
 
 	if d.HideUploading {
@@ -109,12 +143,21 @@ func (d *CloudreveV4) List(ctx context.Context, dir model.Obj, args model.ListAr
 	}
 
 	return utils.SliceConvert(f, func(src File) (model.Obj, error) {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if d.EnableFolderSize && src.Type == 1 {
 			var ds FolderSummaryResp
-			err := d.request(http.MethodGet, "/file/info", func(req *resty.Request) {
+			err := d.requestContext(ctx, http.MethodGet, "/file/info", func(req *resty.Request) {
 				req.SetQueryParam("uri", src.Path)
 				req.SetQueryParam("folder_summary", "true")
 			}, &ds)
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				return nil, err
+			}
 			if err == nil && ds.FolderSummary.Size > 0 {
 				src.Size = ds.FolderSummary.Size
 			}
@@ -122,9 +165,15 @@ func (d *CloudreveV4) List(ctx context.Context, dir model.Obj, args model.ListAr
 		var thumb model.Thumbnail
 		if d.EnableThumb && src.Type == 0 && (src.Metadata == nil || src.Metadata[MetadataThumbDisabled] == "") {
 			var t FileThumbResp
-			err := d.request(http.MethodGet, "/file/thumb", func(req *resty.Request) {
+			err := d.requestContext(ctx, http.MethodGet, "/file/thumb", func(req *resty.Request) {
 				req.SetQueryParam("uri", src.Path)
 			}, &t)
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				return nil, err
+			}
 			if err == nil && t.URL != "" {
 				thumb = model.Thumbnail{
 					Thumbnail: t.URL,
@@ -140,7 +189,7 @@ func (d *CloudreveV4) List(ctx context.Context, dir model.Obj, args model.ListAr
 
 func (d *CloudreveV4) Get(ctx context.Context, path string) (model.Obj, error) {
 	var info File
-	err := d.request(http.MethodGet, "/file/info", func(req *resty.Request) {
+	err := d.requestContext(ctx, http.MethodGet, "/file/info", func(req *resty.Request) {
 		req.SetQueryParam("uri", d.RootFolderPath+path)
 	}, &info)
 	if err != nil {
@@ -151,7 +200,7 @@ func (d *CloudreveV4) Get(ctx context.Context, path string) (model.Obj, error) {
 
 func (d *CloudreveV4) Link(ctx context.Context, file model.Obj, args model.LinkArgs) (*model.Link, error) {
 	var url FileUrlResp
-	err := d.request(http.MethodPost, "/file/url", func(req *resty.Request) {
+	err := d.requestContext(ctx, http.MethodPost, "/file/url", func(req *resty.Request) {
 		req.SetBody(base.Json{
 			"uris":     []string{file.GetPath()},
 			"download": true,

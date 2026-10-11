@@ -1,5 +1,5 @@
 import { HStack, VStack } from "@hope-ui/solid"
-import { createMemo, ErrorBoundary, Show, Suspense } from "solid-js"
+import { createMemo, createResource, createSignal, ErrorBoundary, Show, Suspense, onMount } from "solid-js"
 import { Dynamic } from "solid-js/web"
 import { Error, FullLoading, SelectWrapper } from "~/components"
 import { objStore } from "~/store"
@@ -7,8 +7,23 @@ import { useRouter } from "~/hooks"
 import { Download } from "../previews/download"
 import { OpenWith } from "./open-with"
 import { getPreviews } from "../previews"
+import { loadArchiveExtensions } from "~/store/archive"
+import { markPrimaryReady } from "~/app/primary-ready"
 
 const File = () => {
+  onMount(markPrimaryReady)
+  const [archiveError, setArchiveError] = createSignal(false)
+  const [archives, { refetch }] = createResource(async () => {
+    setArchiveError(false)
+    try { return await loadArchiveExtensions() }
+    catch { setArchiveError(true); return false }
+  })
+  return <Show when={!archiveError()} fallback={<div role="status">预览配置加载失败。<button onClick={() => refetch()}>重试</button></div>}>
+    <Suspense fallback={<FullLoading />}><Show when={archives()}><FileContent /></Show></Suspense>
+  </Show>
+}
+
+const FileContent = () => {
   const { searchParams, setSearchParams } = useRouter()
   const previews = getPreviews({ ...objStore.obj, provider: objStore.provider })
   const cur = createMemo(() => {

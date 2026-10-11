@@ -6,6 +6,7 @@
   border: 0;
   padding: 0;
   background: transparent;
+  color: inherit;
   font: inherit;
   line-height: 1;
   cursor: pointer;

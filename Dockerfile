@@ -17,27 +17,29 @@ RUN VITE_API_URL=/ pnpm run build
 FROM ${GO_IMAGE} AS backend
 WORKDIR /src/backend
 ENV GOTOOLCHAIN=local CGO_ENABLED=0
-# WebP encoding is pure Go (nativewebp); no Python or libwebp encoder service.
+# Icon encoding remains pure Go; image derivatives use the bounded libvips CLI.
 COPY backend/go.mod backend/go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY backend/ ./
 # Never fetch another frontend or run upstream build.sh: embed THIS repository's UI.
 RUN rm -rf public/dist
 COPY --from=frontend /src/dist/ ./public/dist/
-ARG VERSION=custom-local
+ARG VERSION=v1.0
 ARG SOURCE_COMMIT=unknown
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
     go build -trimpath -tags=jsoniter -ldflags="-s -w -X github.com/OpenListTeam/OpenList/v4/internal/conf.Version=${VERSION} -X github.com/OpenListTeam/OpenList/v4/internal/conf.WebVersion=${VERSION} -X github.com/OpenListTeam/OpenList/v4/internal/conf.GitCommit=${SOURCE_COMMIT}" -o /out/openlist .
 
 FROM ${RUNTIME_IMAGE} AS runtime
-ARG VERSION=custom-local
+ARG VERSION=v1.0
 ARG SOURCE_COMMIT=unknown
 LABEL org.opencontainers.image.title="boxlist" \
       org.opencontainers.image.source="https://github.com/hicocos/boxlist" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${SOURCE_COMMIT}" \
       org.opencontainers.image.licenses="AGPL-3.0-only AND MIT"
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates tzdata \
+ARG VIPS_DEB_VERSION=8.14.1-3+deb12u3
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates tzdata util-linux libvips-tools=${VIPS_DEB_VERSION} \
+    && vips --version && vips webpsave --help-operation >/dev/null \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 1001 openlist \
     && useradd --uid 1001 --gid 1001 --no-create-home --shell /usr/sbin/nologin openlist \

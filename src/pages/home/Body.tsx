@@ -1,11 +1,13 @@
 import { VStack } from "@hope-ui/solid"
 import { Nav } from "./Nav"
 import { Obj } from "./Obj"
-import { Readme } from "./Readme"
 import { Container } from "./Container"
 import { Sidebar } from "./Sidebar"
+import { Show, lazy, Suspense } from "solid-js"
+import { primaryReady } from "~/app/primary-ready"
 
 export const Body = () => {
+  const Readme = lazy(() => import("./Readme").then(module => ({ default: module.Readme })))
   return (
     <Container>
       <VStack
@@ -17,13 +19,13 @@ export const Body = () => {
         w="$full"
         gap="$4"
       >
-        <Readme files={["header.md", "top.md", "index.md"]} fromMeta="header" />
+        <Suspense><Show when={primaryReady()}><Readme files={["header.md", "top.md", "index.md"]} fromMeta="header" /></Show></Suspense>
         <Nav />
         <Obj />
-        <Readme
+        <Suspense><Show when={primaryReady()}><Readme
           files={["readme.md", "footer.md", "bottom.md"]}
           fromMeta="readme"
-        />
+        /></Show></Suspense>
         <Sidebar />
       </VStack>
     </Container>

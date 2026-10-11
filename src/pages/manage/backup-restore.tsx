@@ -32,6 +32,7 @@ interface Data {
   storages: Storage[]
   metas: Meta[]
   shares: ShareInfo[]
+  derivatives?: unknown
 }
 type LogType = "success" | "error" | "info"
 const LogMap = {
@@ -88,13 +89,21 @@ const BackupRestore = () => {
   const [getSharesLoading, getShares] = useFetch((): PPageResp<ShareInfo> =>
     r.get("/share/list"),
   )
+  const [getDerivativesLoading, getDerivatives] = useFetch((): PResp<unknown> =>
+    r.get("/admin/derivatives/backup", { timeout: 0 }),
+  )
+  const [restoreDerivativesLoading, restoreDerivatives] = useFetch(
+    (backup: unknown): PEmptyResp =>
+      r.post("/admin/derivatives/restore", { backup, override: override() }, { timeout: 0 }),
+  )
   const backupLoading = () => {
     return (
       getSettingsLoading() ||
       getUsersLoading() ||
       getMetasLoading() ||
       getStoragesLoading() ||
-      getSharesLoading()
+      getSharesLoading() ||
+      getDerivativesLoading()
     )
   }
   function encrypt(data: any, key: string): string {
@@ -174,12 +183,21 @@ const BackupRestore = () => {
           )
         },
       )
+      if (resp.code !== 200) return false
     }
+    const previews = await getDerivatives()
+    if (previews.code !== 200) {
+      appendLog(t("br.failed_backup_item", { item: t("br.derivatives") }) + ":" + previews.message, "error")
+      return false
+    }
+    allData.derivatives = encrypt(previews.data, password())
+    appendLog(t("br.success_backup_item", { item: t("br.derivatives") }), "success")
     download(
       "openlist_backup_" + new Date().toLocaleString() + ".json",
       allData,
     )
     appendLog(t("br.finish_backup"), "info")
+    return true
   }
   const [addSettingsLoading, addSettings] = useFetch(
     (data: SettingItem[]): PEmptyResp => r.post("/admin/setting/save", data),
@@ -274,7 +292,8 @@ const BackupRestore = () => {
       updateUserLoading() ||
       updateStorageLoading() ||
       updateMetaLoading() ||
-      updateShareLoading()
+      updateShareLoading() ||
+      restoreDerivativesLoading()
     )
   }
   const restore = async () => {
@@ -300,20 +319,19 @@ const BackupRestore = () => {
             appendLog(t("br.wrong_encrypt_password"), "error")
             return
           }
-        const dataArray = Object.values(data)
-        for (let i = dataArray.length - 4; i < dataArray.length; i++) {
-          const obj = dataArray[i]
-          console.log(obj)
+        for (const obj of [data.settings, data.users, data.storages, data.metas, data.shares]) {
+          if (!obj) continue
           for (let a = 0; a < obj.length; a++) {
-            const obj1 = obj[a]
+            const obj1 = obj[a] as unknown as Record<string, unknown>
             for (const key in obj1) {
               obj1[key] = decrypt(obj1[key], password(), false, encrypted)
             }
           }
         }
-        if (override()) {
-          await backup()
+        if (data.derivatives !== undefined) {
+          data.derivatives = decrypt(data.derivatives, password(), false, encrypted)
         }
+        if (override() && !(await backup())) return
         data.settings &&
           handleRespWithoutNotify(
             await addSettings(
@@ -434,6 +452,14 @@ const BackupRestore = () => {
               )
             }
           }
+        }
+        if (data.derivatives !== undefined) {
+          const resp = await restoreDerivatives(data.derivatives)
+          handleRespWithoutNotify(resp,
+            () => appendLog(t("br.success_restore_item", { item: t("br.derivatives") }), "success"),
+            (msg) => appendLog(t("br.failed_restore_item", { item: t("br.derivatives") }) + ":" + msg, "error"),
+          )
+          if (resp.code !== 200) return
         }
         appendLog(t("br.finish_restore"), "info")
       }

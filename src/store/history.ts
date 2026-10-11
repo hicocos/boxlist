@@ -1,11 +1,5 @@
-import { createComputed, createRoot, createSignal } from "solid-js"
-import {
-  shouldKeepState,
-  ObjStore,
-  objStore,
-  State,
-  password,
-} from "~/store/obj"
+import { batch, createComputed, createRoot, createSignal } from "solid-js"
+import { ObjStore, objStore, State, password } from "~/store/obj"
 import { me } from "./user"
 import { getPagination } from "./settings"
 import { base_path, r } from "~/utils"
@@ -184,6 +178,30 @@ const lookupHistory = (path: string, page?: number) => {
   return history?.pagination === paginationKey() ? history : undefined
 }
 
+/** Reuse only a complete, unfiltered listing; a paged window is not a book.
+ * This reads the same bounded, credential/password-scoped navigation cache. */
+export const getReaderDirectorySnapshot = (directory: string) => {
+  ensureHistoryScope()
+  const path = normalizeDirectory(directory)
+  const history = HistoryMap.values()
+    .reverse()
+    .find(
+      (entry) => entry.path === path && entry.pagination === paginationKey(),
+    )
+  if (!history) return undefined
+  const snapshot = history.obj as typeof objStore
+  if (
+    snapshot.err ||
+    snapshot.state !== State.Folder ||
+    !Number.isFinite(snapshot.total) ||
+    snapshot.total < 0 ||
+    snapshot.objs.length !== snapshot.total ||
+    new Set(snapshot.objs.map((obj) => obj.name)).size !== snapshot.total
+  )
+    return undefined
+  return JSON.parse(JSON.stringify(snapshot.objs)) as typeof objStore.objs
+}
+
 /** App-relative encoded href, intentionally without joinBase or passwords. */
 export const getDirectoryReturnHref = (directory: string): string => {
   historyRevision()
@@ -208,10 +226,13 @@ export const recoverHistory = async (
   const history = lookupHistory(path, page)
   if (!history || !isCurrent()) return false
   const generation = ++restoreGeneration
-  setDirectoryPage(history.page)
-  shouldKeepState() || ObjStore.setState(State.Initial)
-  ObjStore.set(JSON.parse(JSON.stringify(history.obj)))
-  setHistoryLocation(path, page)
+  // A cache hit is already a complete folder state. Do not publish Initial:
+  // that unmounts the list for a loading frame and can reset its scroll height.
+  batch(() => {
+    setDirectoryPage(history.page)
+    ObjStore.set(JSON.parse(JSON.stringify(history.obj)))
+    setHistoryLocation(path, page)
+  })
   // Folder and its layout are lazy. Wait for actual items rather than two timers.
   await new Promise<void>((resolve) => {
     let frames = 0

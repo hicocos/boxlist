@@ -15,7 +15,7 @@ import { getLinkByDirAndObj } from "~/hooks/useLink"
 import { me, password } from "~/store"
 import { Obj } from "~/types"
 import { fsList, joinBase } from "~/utils"
-import { getDirectoryReturnHref } from "~/store/history"
+import { clearHistory, getDirectoryReturnHref, getHistoryScope, getReaderDirectorySnapshot } from "~/store/history"
 import { isPlainReaderClick, readerCommand } from "./reader-command"
 import {
   isReaderImage,
@@ -24,7 +24,12 @@ import {
   validDirectory,
   ReaderImage,
 } from "./reader-utils"
+import { createDerivativeMedia, readerQuality, readyDerivative, type ReaderQuality } from "~/utils/derivative-policy"
+import { createDerivativeStatusBatch, probeDerivative } from "~/utils/derivatives"
+import { useT } from "~/hooks"
 import SingleReader from "./SingleReader"
+import ReaderTools from "./ReaderTools"
+import "./reader-workspace.css"
 import "./reader.css"
 
 const ContinuousReader = lazy(() => import("./ContinuousReader"))
@@ -34,6 +39,20 @@ export default function Reader() {
   const directory = createMemo(() =>
     typeof searchParams.dir === "string" ? searchParams.dir : "/",
   )
+  const t = useT()
+  const [quality, setQuality] = createSignal<ReaderQuality>((() => {
+    try { return readerQuality(localStorage.getItem("openlist-reader-quality")) } catch { return "preview" }
+  })())
+  const changeQuality = (value: ReaderQuality) => {
+    setQuality(value)
+    try { localStorage.setItem("openlist-reader-quality", value) } catch { /* optional preference */ }
+  }
+  const statusBatch = createMemo(() => {
+    getHistoryScope()
+    const scope = createDerivativeStatusBatch(directory(), password())
+    onCleanup(() => scope.dispose())
+    return scope
+  })
   const [files, setFiles] = createSignal<Obj[]>([])
   const [loading, setLoading] = createSignal(true)
   const [loadedEntries, setLoadedEntries] = createSignal(0)
@@ -45,7 +64,9 @@ export default function Reader() {
   const [index, setIndex] = createSignal(0)
   const [fraction, setFraction] = createSignal(0)
   const [command, setCommand] = createSignal(readerCommand(0))
-  const [jumpValue, setJumpValue] = createSignal("1")
+  const [immersive, setImmersive] = createSignal(false)
+  const [width, setWidth] = createSignal("comfortable")
+  const [gap, setGap] = createSignal(0)
   const [notice, setNotice] = createSignal("")
   const [fullscreen, setFullscreen] = createSignal(false)
   const collator = new Intl.Collator("zh-CN", {
@@ -60,12 +81,21 @@ export default function Reader() {
     ),
   )
   const items = createMemo<ReaderImage[]>(() =>
-    sorted().map((o) => ({
-      key: o.name,
-      name: o.name,
-      size: o.size,
-      src: getLinkByDirAndObj(directory(), o, "direct", false, true),
-    })),
+    sorted().map((o) => {
+      const original = getLinkByDirAndObj(directory(), o, "direct", false, true)
+      const scope = statusBatch()
+      return {
+        key: o.name,
+        name: o.name,
+        size: o.size,
+        src: original,
+        original,
+        thumb: o.thumb,
+        derivatives: o.derivatives,
+        media: createDerivativeMedia({ profile: "reader", probe: probeDerivative, derivatives: o.derivatives,
+          original, originalBytes: o.size, refresh: signal => scope.refresh(o.name, signal) }),
+      }
+    }),
   )
   let ready = false
   let loadedProgressKey = ""
@@ -99,7 +129,6 @@ export default function Reader() {
     batch(() => {
       setIndex(next)
       setFraction(Math.max(0, Math.min(1, part)))
-      setJumpValue(String(next + 1))
     })
     saveSoon()
   }
@@ -128,7 +157,7 @@ export default function Reader() {
   }
 
   createEffect(
-    on([directory, reload], async () => {
+    on([directory, reload, getHistoryScope, password], async () => {
       save()
       ready = false
       const dir = directory()
@@ -164,9 +193,17 @@ export default function Reader() {
       setMode(initialMode)
       const collected = new Map<string, Obj>()
       const seen = new Set<string>()
-      let count = 0
+      const cached = reload() === 0 ? getReaderDirectorySnapshot(dir) : undefined
+      let count = cached?.length ?? 0
+      if (cached) {
+        for (const obj of cached) {
+          if (isReaderImage(obj)) collected.set(obj.name, obj)
+        }
+        setLoadedEntries(count)
+        setTotalEntries(count)
+      }
       try {
-        for (let page = 1; ; page++) {
+        for (let page = 1; !cached; page++) {
           const timeout = setTimeout(
             () => cancel.cancel("目录请求超时，请重试"),
             30000,
@@ -181,8 +218,10 @@ export default function Reader() {
           )
           clearTimeout(timeout)
           if (stopped) return
-          if (response.code !== 200)
+          if (response.code !== 200) {
+            clearHistory(dir)
             throw new Error(response.message || "目录读取失败")
+          }
           const content = response.data.content || []
           const total = response.data.total
           if (!Number.isFinite(total) || total < 0)
@@ -218,7 +257,6 @@ export default function Reader() {
           setIndex(next)
           setFraction(part)
           setCommand(readerCommand(next, part))
-          setJumpValue(String(next + 1))
         })
 
         loadedProgressKey = key()
@@ -261,10 +299,18 @@ export default function Reader() {
     save()
     if (!isPlainReaderClick(event)) return
     event.preventDefault()
+    // A cold Home chunk may suspend navigation. Stop the pending progress URL
+    // write now, otherwise it navigates back to /@reader before cleanup runs.
+    clearTimeout(saveTimer)
+    ready = false
     to(returnUrl(), true, { preserveHistory: true, scroll: false })
   }
   return (
-    <main class="directory-reader">
+    <main
+      class="directory-reader"
+      classList={{ "is-immersive": immersive() }}
+      data-width={width()}
+    >
       <div class="reader-chrome">
         <header class="reader-header">
           <a
@@ -295,47 +341,29 @@ export default function Reader() {
             ×
           </a>
         </header>
-        <Show when={!loading() && !error() && items().length > 0}>
-          <nav class="reader-controls" aria-label="阅读设置">
-            <div class="reader-mode">
-              <button
-                type="button"
-                aria-pressed={mode() === "continuous"}
-                onClick={() => changeMode("continuous")}
-              >
-                连读
-              </button>
-              <button
-                type="button"
-                aria-pressed={mode() === "single"}
-                onClick={() => changeMode("single")}
-              >
-                单张
-              </button>
-            </div>
-
-            <form
-              class="reader-jump"
-              onSubmit={(e) => {
-                e.preventDefault()
-                const n = Number(jumpValue())
-                if (Number.isInteger(n)) jump(n - 1)
-              }}
-            >
-              <input
-                type="number"
-                min="1"
-                max={items().length}
-                aria-label="跳到第几张"
-                value={jumpValue()}
-                onInput={(e) => setJumpValue(e.currentTarget.value)}
-              />
-              <span>/ {items().length}</span>
-              <button type="submit">跳转</button>
-            </form>
-          </nav>
-        </Show>
       </div>
+      <Show when={!loading() && !error() && items().length > 0}>
+        <ReaderTools
+          items={items()}
+          index={index()}
+          mode={mode()}
+          immersive={immersive()}
+          width={width()}
+          gap={gap()}
+          onJump={jump}
+          onMode={changeMode}
+          onImmersive={setImmersive}
+          onWidth={setWidth}
+          onGap={setGap}
+          onFullscreen={toggleFullscreen}
+          quality={quality()}
+          onQuality={changeQuality}
+          refreshThumbnail={(name, signal) => statusBatch().refresh(name, signal)}
+        />
+      </Show>
+      <Show when={quality() === "preview" && !loading() && items()[index()] && !readyDerivative(items()[index()].derivatives?.reader)}>
+        <p class="reader-notice" role="status">{t("derivatives.missing_preview")}</p>
+      </Show>
       <Show when={notice()}>
         <p class="reader-notice" role="status">
           {notice()}
@@ -350,14 +378,13 @@ export default function Reader() {
       </Show>
       <Show when={loading()}>
         <p class="reader-message" role="status">
-          正在读取目录… {loadedEntries()} / {totalEntries() || "…"} 条<br />
-          只读取文件信息，不会同时下载所有原图。
+          正在读取目录… {loadedEntries()} / {totalEntries() || "…"} 条
         </p>
       </Show>
       <Show when={error()}>
         <div class="reader-message" role="alert">
           <p>{error()}</p>
-          <p>加密或受限目录请先返回目录解锁，阅读页不绕过访问权限。</p>
+          <p>受限目录请先返回解锁。</p>
           <button type="button" onClick={() => setReload(reload() + 1)}>
             重试
           </button>
@@ -386,6 +413,7 @@ export default function Reader() {
               <SingleReader
                 items={items()}
                 index={index()}
+                quality={quality()}
                 onChange={(i) => jump(i)}
               />
             }
@@ -396,7 +424,8 @@ export default function Reader() {
               <ContinuousReader
                 items={items()}
                 command={command()}
-                gap={0}
+                quality={quality()}
+                gap={gap()}
                 onProgress={progress}
                 onOpen={(i: number) => {
                   jump(i)

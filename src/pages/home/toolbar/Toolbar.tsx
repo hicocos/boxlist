@@ -17,6 +17,7 @@ import { LocalSettings } from "./LocalSettings"
 import { BackTop } from "./BackTop"
 import { Decompress } from "./Decompress"
 import { Share } from "./Share"
+import { GenerateDerivatives } from "./GenerateDerivatives"
 
 const Upload = lazy(() => import("../uploads/Upload"))
 
@@ -30,6 +31,7 @@ export const Modal = () => {
       <Decompress />
       <NewFile />
       <Mkdir />
+      <GenerateDerivatives />
       <Share />
       <RecursiveMove />
       <RemoveEmptyDirectory />

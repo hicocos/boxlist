@@ -11,7 +11,7 @@
   flex-direction: column;
   align-items: stretch;
   width: 100%;
-  max-width: 1100px;
+  max-width: var(--reader-width, 1100px);
   margin-inline: auto;
   min-width: 0;
 }
@@ -85,7 +85,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  max-width: 1100px;
+  max-width: var(--reader-width, 1100px);
   margin-inline: auto;
   padding: 0.75rem 0.25rem;
   font-size: 0.875rem;

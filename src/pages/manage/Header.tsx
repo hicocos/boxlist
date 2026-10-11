@@ -62,7 +62,7 @@ const Header = () => {
           />
           <Heading
             fontSize="$xl"
-            color="$info9"
+            color="$info11"
             cursor="pointer"
             onClick={() => {
               to("/@manage")
@@ -85,7 +85,7 @@ const Header = () => {
         <DrawerOverlay />
         <DrawerContent>
           <DrawerCloseButton />
-          <DrawerHeader color="$info9">{t("manage.title")}</DrawerHeader>
+          <DrawerHeader color="$info11">{t("manage.title")}</DrawerHeader>
           <DrawerBody>
             <SideMenu items={side_menu_items} />
             <Center>

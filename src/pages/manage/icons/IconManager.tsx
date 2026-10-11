@@ -1,3 +1,5 @@
+import { iconFormatLabel } from "./icon-format"
+import { TransparentIconAction, iconTransparencyBusy, disposeTransparencyWatchers } from "./TransparentIconAction"
 import {
   createMemo,
   createSignal,
@@ -16,8 +18,6 @@ import { AssetIcon } from "~/components/SiteIcon"
 import {
   allIconAssets,
   iconAssetById,
-  suggestedIconAssets,
-  hiddenBuiltinIcons,
   removeLibraryIcon,
 } from "~/utils/icon-assets"
 import {
@@ -27,7 +27,6 @@ import {
   DEFAULT_ICON,
   canonicalIconConfig,
   defaultIconConfig,
-  recommendedIconConfig,
   previewIconAsset,
   changedIconTargetIds,
   reconcileIconDraft,
@@ -44,7 +43,6 @@ import {
   iconLibraryAdapter,
   type IconLibraryAdapter,
 } from "./IconUploader"
-import { IconServiceStatus } from "./IconServiceStatus"
 import "./icons.css"
 
 const groups = [
@@ -82,6 +80,8 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
   const [libraryError, setLibraryError] = createSignal("")
   const [libraryNotice, setLibraryNotice] = createSignal("")
   const [libraryMode, setLibraryMode] = createSignal(false)
+  const [workspace, setWorkspace] = createSignal("mapping")
+  const [libraryPreview, setLibraryPreview] = createSignal("")
   let deleteController: AbortController | undefined
   const [uploadPreviewOpen, setUploadPreviewOpen] = createSignal(false)
   let closeUploadPreview: (() => void) | undefined
@@ -95,8 +95,23 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
   const [selected, setSelected] = createSignal("folder")
   const [pickerOpen, setPickerOpen] = createSignal(false)
   const [pickerSequence, setPickerSequence] = createSignal<IconTarget[]>([])
-  const [allAssets, setAllAssets] = createSignal(false)
   const [assetQuery, setAssetQuery] = createSignal("")
+  const [assetFormat, setAssetFormat] = createSignal("all")
+  const [assetUsageFilter, setAssetUsageFilter] = createSignal("all")
+  const [applyQuery, setApplyQuery] = createSignal("")
+  const [applyTargets, setApplyTargets] = createSignal<string[]>([])
+  const assignmentTargets = createMemo(() => filterIconManagerTargets("all", applyQuery()))
+  const libraryAssets = createMemo(() =>
+    allIconAssets().filter(
+      (asset) =>
+        (assetFormat() === "all" || (assetFormat() === "gif") === /\.gif$/i.test(asset.name)) &&
+        (assetUsageFilter() === "all" || (assetUsageFilter() === "used") === ICON_TARGETS.some(item =>
+          effectiveAsset(draft(), item) === asset.id || effectiveAsset(baseline(), item) === asset.id)) &&
+        `${asset.name} ${asset.id}`
+          .toLowerCase()
+          .includes(assetQuery().trim().toLowerCase()),
+    ),
+  )
   let active = true
   let generation = 0
   let page!: HTMLElement
@@ -128,18 +143,15 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
     pickerTargets().findIndex((item) => item.id === selected())
   const visibleAssets = createMemo(() => {
     const chosen = draft().selections[target().id]
-    const related = suggestedIconAssets(target())
     const assets = allIconAssets()
     const selectedAsset = chosen ? iconAssetById(chosen) : undefined
     if (selectedAsset && !assets.some((item) => item.id === selectedAsset.id))
       assets.push(selectedAsset)
     return assets.filter(
       (asset) =>
-        asset.id === chosen ||
-        ((allAssets() || related.some((item) => item.id === asset.id)) &&
-          `${asset.name} ${asset.id}`
-            .toLowerCase()
-            .includes(assetQuery().trim().toLowerCase())),
+        `${asset.name} ${asset.id}`
+          .toLowerCase()
+          .includes(assetQuery().trim().toLowerCase()),
     )
   })
   const effective = () => effectiveAsset(draft(), target())
@@ -224,11 +236,16 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
           ? openedFrom
           : undefined
         : (button ?? (openedFrom?.isConnected ? openedFrom : undefined))
-      if (destination) destination.focus({ preventScroll: true })
+      if (destination?.getClientRects().length) destination.focus({ preventScroll: true })
       else page.focus({ preventScroll: true })
     })
   }
   const trapPickerFocus = (event: KeyboardEvent) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+      event.preventDefault()
+      if (canSave()) void save()
+      return
+    }
     if (event.key !== "Tab" || event.ctrlKey || event.metaKey || event.altKey)
       return
     const tabbables = Array.from(
@@ -373,6 +390,7 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
     active = false
     ++generation
     deleteController?.abort()
+    disposeTransparencyWatchers()
     cancelAnimationFrame(focusFrame)
     if (editor?.open) editor.close()
     removeHistoryGuard()
@@ -390,7 +408,6 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
     setLibraryError("")
     setLibraryNotice("")
     setSelected(id)
-    setAllAssets(false)
     setAssetQuery("")
     if (from) openedFrom = from
     shortcuts.open = false
@@ -411,13 +428,14 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
     // Focus stays in the top-layer dialog; the type grid never auto-scrolls.
     editor.focus({ preventScroll: true })
   }
-  const openLibrary = (from: HTMLButtonElement) => {
+  const openLibrary = (from: HTMLButtonElement, id: string) => {
     if (uploadBusy() || busy() || catalogLoading()) return
     openedFrom = from
     cancelAnimationFrame(focusFrame)
     setLibraryMode(true)
-    setAllAssets(true)
-    setAssetQuery("")
+    setLibraryPreview(id)
+    setApplyQuery("")
+    setApplyTargets([])
     setLibraryError("")
     setLibraryNotice("")
     setPickerSequence([target()])
@@ -429,12 +447,21 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
   }
   const assetUsage = (id: string) =>
     ICON_TARGETS.filter(
-      (item) =>
-        draft().selections[item.id] === id ||
-        baseline().selections[item.id] === id,
+      (item) => effectiveAsset(draft(), item) === id || effectiveAsset(baseline(), item) === id,
     )
+  const applyAsset = () => {
+    const id = libraryPreview()
+    if (locked() || conflicts().length || !iconAssetById(id) || !applyTargets().length) return
+    setDraft(old => ({ version: 1, selections: { ...old.selections, ...Object.fromEntries(applyTargets().map(target => [target, id])) } }))
+    setStatus(uxText(`已为 ${applyTargets().length} 项类型选择素材，请保存更改。`, `Selected for ${applyTargets().length} types. Save to apply.`))
+    closePicker()
+    setWorkspace("mapping")
+    setChangedOnly(true)
+    setQuery("")
+    setGroup("all")
+  }
   const deleteAsset = async (id: string) => {
-    if (locked() || uploadBusy() || catalogLoading()) return
+    if (locked() || uploadBusy() || catalogLoading() || iconTransparencyBusy(id)) return
     const asset = iconAssetById(id)
     if (!asset) return
     const used = assetUsage(id)
@@ -450,7 +477,7 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
     if (
       !window.confirm(
         uxText(
-          `删除素材“${asset.name}”？${asset.family === "uploaded" ? "会从素材库移除，不会修改文件目录或其他素材。" : "会从可选素材库移除，程序内置原文件保留。"}`,
+          `删除素材“${asset.name}”？会从素材库移除，不会修改文件目录或其他素材。`,
           `Remove "${asset.name}" from the icon library? Other assets and files are unaffected.`,
         ),
       )
@@ -465,7 +492,8 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
       await (props.library ?? iconLibraryAdapter).remove(id, controller.signal)
       if (!active || controller.signal.aborted) return
       removeLibraryIcon(id)
-      editor.focus({ preventScroll: true })
+      if (editor.open) editor.focus({ preventScroll: true })
+      else page.focus({ preventScroll: true })
       setLibraryNotice(
         uxText(`已删除素材：${asset.name}`, `Removed: ${asset.name}`),
       )
@@ -505,7 +533,7 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
     const id = conflicts()[0]
     if (id) openTarget(id)
   }
-  const quick = (action: "recommended" | "defaults" | "reload") => {
+  const quick = (action: "defaults" | "reload") => {
     shortcuts.open = false
     if (action === "reload") {
       void load(true)
@@ -513,31 +541,15 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
     }
     if (locked() || conflicts().length) return
     if (
-      (dirty() || action === "defaults") &&
       !window.confirm(
         uxText(
-          action === "defaults"
-            ? "将全部类型改为默认图标？点击保存后才会生效。"
-            : "用匹配素材替换当前草稿？点击保存后才会生效。",
-          action === "defaults"
-            ? "Use default icons for all types? Changes apply only after saving."
-            : "Replace the draft with matching assets? Changes apply only after saving.",
+          "将全部类型改为默认图标？点击保存后才会生效。",
+          "Use default icons for all types? Changes apply only after saving.",
         ),
       )
     )
       return
-    setDraft(
-      action === "recommended"
-        ? {
-            version: 1,
-            selections: Object.fromEntries(
-              Object.entries(recommendedIconConfig().selections).filter(
-                ([, id]) => !hiddenBuiltinIcons().includes(id),
-              ),
-            ),
-          }
-        : defaultIconConfig(),
-    )
+    setDraft(defaultIconConfig())
     setStatus("")
     setError("")
   }
@@ -621,14 +633,20 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
       tabIndex={-1}
       class="icon-manager im-page"
       aria-busy={busy()}
+      onKeyDown={event => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+          event.preventDefault()
+          if (canSave()) void save()
+        }
+      }}
     >
       <header class="im-heading">
         <div>
           <h1>{uxText("图标管理", "Icon manager")}</h1>
           <p>
             {uxText(
-              "点类型卡片换图标，选好后统一保存。",
-              "Tap a type to choose an icon, then save your changes.",
+              "先上传素材，再为文件类型选用。保存后全站生效。",
+              "Upload assets, choose them for file types, then save to apply site-wide.",
             )}
           </p>
         </div>
@@ -637,7 +655,31 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
           {ICON_TARGETS.length} {uxText("项类型", "types")}
         </small>
       </header>
-      <div class="im-savebar">
+      <nav
+        class="im-workspaces"
+        aria-label={uxText("图标工作区", "Icon workspace")}
+      >
+        <button
+          type="button"
+          aria-pressed={workspace() === "mapping"}
+          onClick={() => setWorkspace("mapping")}
+        >
+          {uxText("图标配置", "Icon settings")}{" "}
+          <span>{ICON_TARGETS.length}</span>
+        </button>
+        <button
+          type="button"
+          aria-pressed={workspace() === "library"}
+          onClick={() => {
+            setWorkspace("library")
+          }}
+        >
+          {uxText("素材库", "Asset library")}{" "}
+          <span>{allIconAssets().length}</span>
+        </button>
+      </nav>
+      <Show when={workspace() === "mapping" || dirty() || uncertain() || conflicts().length || error()}>
+      <div class="im-savebar" data-dirty={dirty()}>
         <span class="im-save-state" role="status" data-dirty={dirty()}>
           {saveState()}
         </span>
@@ -649,13 +691,14 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
                 type="button"
                 disabled={locked() || !dirty()}
                 onClick={() => {
+                  if (!window.confirm(uxText("放弃所有未保存的图标选择？", "Discard all unsaved icon choices?"))) return
                   setDraft(baseline())
                   setError("")
                   setStatus("")
                 }}
                 data-action="undo"
               >
-                {uxText("撤销", "Undo")}
+                {uxText("放弃更改", "Discard changes")}
               </button>
               <button
                 type="button"
@@ -724,176 +767,261 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
           </p>
         </Show>
       </div>
-      <IconUploader
-        adapter={props.library}
-        disabled={locked()}
-        busy={setUploadBusy}
-        unfinished={setUploadPending}
-        catalogLoading={setCatalogLoading}
-        libraryControl={openLibrary}
-        previewControl={(open, close) => {
-          setUploadPreviewOpen(open)
-          closeUploadPreview = close
-        }}
-      />
-      <div class="im-filterbar">
-        <div class="im-search">
+      </Show>
+      <div hidden={workspace() !== "library"} class="im-library-workspace">
+        <IconUploader
+          adapter={props.library}
+          disabled={locked()}
+          busy={setUploadBusy}
+          unfinished={setUploadPending}
+          catalogLoading={setCatalogLoading}
+          previewControl={(open, close) => {
+            setUploadPreviewOpen(open)
+            closeUploadPreview = close
+          }}
+        />
+        <div class="im-section-heading">
+          <div>
+            <h2>{uxText("我的素材", "My assets")}</h2>
+            <p>
+              {uxText(
+                "预览、应用到多个类型，或处理 GIF 白底。上传和素材处理即时生效；类型选择需保存。",
+                "Preview, assign to multiple types, or remove GIF backgrounds. Asset changes are immediate; icon assignments need saving.",
+              )}
+            </p>
+          </div>
+        </div>
+        <div class="im-library-tools im-library-filters">
           <input
             type="search"
-            aria-label={uxText("搜索全部类型", "Search all types")}
-            value={query()}
-            onInput={(event) => setQuery(event.currentTarget.value)}
-            placeholder={uxText(
-              "搜索类型，如 MP3、文件夹",
-              "Find a type: MP3, folders…",
-            )}
+            aria-label={uxText("搜索素材库", "Search library")}
+            placeholder={uxText("搜索素材名称", "Search asset names")}
+            value={assetQuery()}
+            onInput={(e) => setAssetQuery(e.currentTarget.value)}
           />
-          <Show when={query()}>
-            <button
-              type="button"
-              class="im-search-clear"
-              aria-label={uxText("清除搜索", "Clear search")}
-              onClick={() => setQuery("")}
-            >
-              ×
-            </button>
-          </Show>
+          <select aria-label={uxText("素材格式", "Asset format")} value={assetFormat()} onChange={event => setAssetFormat(event.currentTarget.value)}>
+            <option value="all">{uxText("全部格式", "All formats")}</option>
+            <option value="png">{uxText("静态 PNG", "Static PNG")}</option>
+            <option value="gif">{uxText("动态 GIF", "Animated GIF")}</option>
+          </select>
+          <select aria-label={uxText("使用情况", "Usage")} value={assetUsageFilter()} onChange={event => setAssetUsageFilter(event.currentTarget.value)}>
+            <option value="all">{uxText("全部素材", "All assets")}</option>
+            <option value="used">{uxText("已使用", "In use")}</option>
+            <option value="unused">{uxText("未使用", "Unused")}</option>
+          </select>
+          <span class="im-count" role="status">
+            {libraryAssets().length} {uxText("款素材", "assets")}
+          </span>
         </div>
-        <select
-          aria-label={uxText("类型分类", "Type category")}
-          value={group()}
-          disabled={!!query().trim()}
-          onChange={(event) => setGroup(event.currentTarget.value)}
-        >
-          <For each={groups}>
-            {([id, chinese, english]) => (
-              <option value={id}>{uxText(chinese, english)}</option>
+        <Show when={libraryError()}><p class="im-error" role="alert">{libraryError()}</p></Show>
+        <Show when={libraryNotice()}><p class="im-success" role="status">{libraryNotice()}</p></Show>
+        <div class="im-library-browser">
+          <For each={libraryAssets()}>
+            {(asset) => (
+              <div class="im-library-tile">
+              <button
+                type="button"
+                class="im-library-open"
+                aria-haspopup="dialog"
+                onClick={(event) => {
+                  openLibrary(event.currentTarget, asset.id)
+                }}
+              >
+                <img
+                  src={asset.url}
+                  alt=""
+                  width="80"
+                  height="80"
+                  loading="lazy"
+                />
+                <strong>{asset.name}</strong>
+              </button>
+                <div class="im-format-actions">
+                  <small>{iconFormatLabel(asset.name, asset.source)}</small>
+                  <TransparentIconAction asset={asset} disabled={locked() || libraryDeleting()} />
+                </div>
+                <span class="im-usage">{assetUsage(asset.id).length ? uxText(`用于 ${assetUsage(asset.id).length} 类`, `Used by ${assetUsage(asset.id).length} types`) : uxText("未使用", "Unused")}</span>
+                <div class="im-library-card-actions">
+                  <button type="button" onClick={event => openLibrary(event.currentTarget, asset.id)}>{uxText("选用 / 详情", "Use / details")}</button>
+                  <button type="button" disabled={locked() || !!assetUsage(asset.id).length || iconTransparencyBusy(asset.id)} onClick={() => void deleteAsset(asset.id)} aria-label={uxText(`删除 ${asset.name}`, `Delete ${asset.name}`)}>{uxText("删除", "Delete")}</button>
+                </div>
+              </div>
             )}
           </For>
-        </select>
-      </div>
-      <div class="im-tools">
-        <button
-          type="button"
-          class="im-filter-changes"
-          aria-pressed={changedOnly()}
-          onClick={() => setChangedOnly(!changedOnly())}
-        >
-          {uxText("只看待保存", "Unsaved only")}
-          {dirty() ? ` (${changedIds().length})` : ""}
-        </button>
-        <details ref={shortcuts} class="im-shortcuts">
-          <summary>{uxText("快捷操作", "Quick actions")}</summary>
-          <div class="im-shortcut-menu">
+        </div>
+        <Show when={!libraryAssets().length}>
+          <div class="im-empty">
+            <p>{allIconAssets().length ? uxText("没有符合筛选条件的素材", "No matching assets") : uxText("还没有素材，上传 PNG 或 GIF 开始使用。", "No assets yet. Upload a PNG or GIF to get started.")}</p>
             <button
               type="button"
-              disabled={locked() || conflicts().length > 0}
-              onClick={() => quick("recommended")}
-              data-action="recommended"
+              onClick={() => {
+                setAssetQuery("")
+                setAssetFormat("all")
+                setAssetUsageFilter("all")
+              }}
             >
-              {uxText("一键匹配素材", "Apply matching assets")}
+              {uxText("清除筛选", "Clear filters")}
             </button>
-            <button
-              type="button"
-              disabled={locked() || conflicts().length > 0}
-              onClick={() => quick("defaults")}
-              data-action="defaults"
-            >
-              {uxText("全部恢复默认", "Use all defaults")}
-            </button>
-            <button
-              type="button"
-              disabled={busy()}
-              onClick={() => quick("reload")}
-              data-action="reload"
-            >
-              {uxText("重新加载配置", "Reload settings")}
-            </button>
-            <small>
-              {uxText(
-                "匹配和恢复默认只改草稿，不会自动保存。",
-                "Matching and defaults change the draft only.",
-              )}
-            </small>
           </div>
-        </details>
-        <span class="im-count">
-          {query().trim()
-            ? uxText(
-                `搜索全部类型 · ${visibleTargets().length} 项`,
-                `All-type search · ${visibleTargets().length} results`,
-              )
-            : uxText(
-                `${visibleTargets().length} 项`,
-                `${visibleTargets().length} types`,
+        </Show>
+      </div>
+      <div hidden={workspace() !== "mapping"} class="im-mapping-workspace">
+        <div class="im-section-heading">
+          <div>
+            <h2>{uxText("按文件类型配置", "Configure by file type")}</h2>
+            <p>
+              {uxText(
+                "点击类型选择素材；通用类型会被对应扩展名继承。Ctrl / ⌘ + S 保存。",
+                "Choose an icon per type; extensions can inherit category icons. Ctrl / ⌘ + S saves.",
               )}
-        </span>
-      </div>
-      <div
-        class="im-target-grid"
-        aria-label={uxText("可替换类型", "Replaceable types")}
-      >
-        <For each={visibleTargets()}>
-          {(item) => (
-            <button
-              type="button"
-              class="im-target"
-              data-target={item.id}
-              data-changed={changedIds().includes(item.id)}
-              aria-haspopup="dialog"
-              onClick={(event) => openTarget(item.id, event.currentTarget)}
-            >
-              <span class="im-target-top">
-                <AssetIcon
-                  width="40"
-                  height="40"
-                  asset={effectiveAsset(draft(), item)}
-                  fallback={getDefaultIconForTarget(item)}
-                  aria-hidden="true"
-                />
-                <span>
-                  {changedIds().includes(item.id)
-                    ? uxText("待保存", "Unsaved")
-                    : uxText("更换", "Change")}
-                </span>
-              </span>
-              <strong>{label(item)}</strong>
-              <small>{description(item)}</small>
-            </button>
-          )}
-        </For>
-      </div>
-      <Show when={!visibleTargets().length}>
-        <div class="im-empty">
-          <p>
-            {changedOnly()
-              ? uxText(
-                  "没有符合条件的待保存更改。",
-                  "No unsaved changes match these filters.",
-                )
-              : uxText(
-                  "没有匹配的类型，搜索会查找全部类型。",
-                  "No matching types. Search covers all types.",
-                )}
-          </p>
+            </p>
+          </div>
+        </div>
+        <div class="im-filterbar">
+          <div class="im-search">
+            <input
+              type="search"
+              aria-label={uxText("搜索全部类型", "Search all types")}
+              value={query()}
+              onInput={(event) => setQuery(event.currentTarget.value)}
+              placeholder={uxText(
+                "搜索类型，如 MP3、文件夹",
+                "Find a type: MP3, folders…",
+              )}
+            />
+            <Show when={query()}>
+              <button
+                type="button"
+                class="im-search-clear"
+                aria-label={uxText("清除搜索", "Clear search")}
+                onClick={() => setQuery("")}
+              >
+                ×
+              </button>
+            </Show>
+          </div>
+          <select
+            aria-label={uxText("类型分类", "Type category")}
+            value={group()}
+            disabled={!!query().trim()}
+            onChange={(event) => setGroup(event.currentTarget.value)}
+          >
+            <For each={groups}>
+              {([id, chinese, english]) => (
+                <option value={id}>{uxText(chinese, english)}</option>
+              )}
+            </For>
+          </select>
+        </div>
+        <div class="im-tools">
           <button
             type="button"
-            onClick={() => {
-              setQuery("")
-              setChangedOnly(false)
-              setGroup("all")
-            }}
+            class="im-filter-changes"
+            aria-pressed={changedOnly()}
+            onClick={() => setChangedOnly(!changedOnly())}
           >
-            {uxText("查看全部类型", "Show all types")}
+            {uxText("只看待保存", "Unsaved only")}
+            {dirty() ? ` (${changedIds().length})` : ""}
           </button>
+          <details ref={shortcuts} class="im-shortcuts">
+            <summary>{uxText("快捷操作", "Quick actions")}</summary>
+            <div class="im-shortcut-menu">
+              <button
+                type="button"
+                disabled={locked() || conflicts().length > 0}
+                onClick={() => quick("defaults")}
+                data-action="defaults"
+              >
+                {uxText("全部恢复默认", "Use all defaults")}
+              </button>
+              <button
+                type="button"
+                disabled={busy()}
+                onClick={() => quick("reload")}
+                data-action="reload"
+              >
+                {uxText("重新加载配置", "Reload settings")}
+              </button>
+              <small>
+                {uxText(
+                  "恢复默认只更改草稿，保存后生效。",
+                  "Defaults change the draft only; save to apply.",
+                )}
+              </small>
+            </div>
+          </details>
+          <span class="im-count" role="status">
+            {query().trim()
+              ? uxText(
+                  `搜索全部类型 · ${visibleTargets().length} 项`,
+                  `All-type search · ${visibleTargets().length} results`,
+                )
+              : uxText(
+                  `${visibleTargets().length} 项`,
+                  `${visibleTargets().length} types`,
+                )}
+          </span>
         </div>
-      </Show>
-      <p class="im-footnote">
-        {uxText(
-          "无专用素材可使用默认图标或跟随通用分类；相近素材均保留。",
-          "Use default icons or inherit categories when no dedicated asset exists. Similar assets are retained.",
-        )}
-      </p>
+        <div
+          class="im-target-grid"
+          aria-label={uxText("可替换类型", "Replaceable types")}
+        >
+          <For each={visibleTargets()}>
+            {(item) => (
+              <button
+                type="button"
+                class="im-target"
+                data-target={item.id}
+                data-changed={changedIds().includes(item.id)}
+                aria-haspopup="dialog"
+                onClick={(event) => openTarget(item.id, event.currentTarget)}
+              >
+                <span class="im-target-top">
+                  <AssetIcon
+                    width="40"
+                    height="40"
+                    asset={effectiveAsset(draft(), item)}
+                    fallback={getDefaultIconForTarget(item)}
+                    aria-hidden="true"
+                  />
+                  <span>
+                    {changedIds().includes(item.id)
+                      ? uxText("待保存", "Unsaved")
+                      : uxText("更换", "Change")}
+                  </span>
+                </span>
+                <strong>{label(item)}</strong>
+                <small>{description(item)}</small>
+              </button>
+            )}
+          </For>
+        </div>
+        <Show when={!visibleTargets().length}>
+          <div class="im-empty">
+            <p>
+              {changedOnly()
+                ? uxText(
+                    "没有符合条件的待保存更改。",
+                    "No unsaved changes match these filters.",
+                  )
+                : uxText(
+                    "没有匹配的类型，搜索会查找全部类型。",
+                    "No matching types. Search covers all types.",
+                  )}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("")
+                setChangedOnly(false)
+                setGroup("all")
+              }}
+            >
+              {uxText("查看全部类型", "Show all types")}
+            </button>
+          </div>
+        </Show>
+      </div>
       <Portal>
         <dialog
           ref={editor}
@@ -922,14 +1050,14 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
             <div>
               <h2 id="im-picker-title">
                 {libraryMode()
-                  ? uxText("素材库", "Icon library")
+                  ? uxText("素材详情", "Asset details")
                   : label(target())}
               </h2>
               <small>
                 {libraryMode()
                   ? uxText(
-                      "删除前请确认，正在使用的素材需先更换并保存。",
-                      "Replace and save in-use icons before deleting assets.",
+                      "选择应用类型，或管理这份素材。",
+                      "Choose target types or manage this asset.",
                     )
                   : description(target())}
               </small>
@@ -1016,7 +1144,7 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
                       </small>
                     </div>
                   </Show>
-                  <div class="im-preview">
+                  <div class="im-preview" aria-live="polite">
                     <AssetIcon
                       width="64"
                       height="64"
@@ -1025,7 +1153,11 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
                       aria-hidden="true"
                     />
                     <div>
-                      <strong>{uxText("当前预览", "Current preview")}</strong>
+                      <strong>
+                        {changedIds().includes(target().id)
+                          ? uxText("待保存预览", "Unsaved preview")
+                          : uxText("当前图标", "Current icon")}
+                      </strong>
                       <div class="im-sample-row">
                         <AssetIcon
                           width="24"
@@ -1105,32 +1237,15 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
                       </label>
                     </div>
                     <div class="im-library-tools">
-                      <button
-                        type="button"
-                        aria-pressed={allAssets()}
-                        onClick={() => {
-                          setAllAssets(!allAssets())
-                          setAssetQuery("")
+                      <input
+                        type="search"
+                        aria-label={uxText("搜索素材", "Search assets")}
+                        value={assetQuery()}
+                        onInput={(event) => {
+                          setAssetQuery(event.currentTarget.value)
                         }}
-                      >
-                        {allAssets()
-                          ? uxText("相关素材", "Related assets")
-                          : uxText(
-                              `全部素材 (${allIconAssets().length})`,
-                              `All assets (${allIconAssets().length})`,
-                            )}
-                      </button>
-                      <Show when={allAssets()}>
-                        <input
-                          type="search"
-                          aria-label={uxText("搜索素材", "Search assets")}
-                          value={assetQuery()}
-                          onInput={(event) =>
-                            setAssetQuery(event.currentTarget.value)
-                          }
-                          placeholder={uxText("素材名称", "Asset name")}
-                        />
-                      </Show>
+                        placeholder={uxText("素材名称", "Asset name")}
+                      />
                     </div>
                     <div class="im-asset-grid">
                       <For each={visibleAssets()}>
@@ -1158,15 +1273,7 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
                             />
                             <strong>{asset.name}</strong>
                             <small>
-                              {asset.id === target().recommended
-                                ? uxText("格式匹配", "Matching")
-                                : asset.family === "uploaded"
-                                  ? uxText("我的上传", "My upload")
-                                  : asset.family === "legacy"
-                                    ? uxText("原有素材", "Existing")
-                                    : asset.family === "anime"
-                                      ? uxText("动漫素材", "Anime")
-                                      : uxText("简洁素材", "Simple")}
+                              {iconFormatLabel(asset.name, asset.source)}
                             </small>
                           </label>
                         )}
@@ -1175,8 +1282,8 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
                     <Show when={!visibleAssets().length}>
                       <p class="im-empty">
                         {uxText(
-                          "暂无相关素材，可用默认图标或展开全部素材。",
-                          "No related assets. Use the default or browse all assets.",
+                          "暂无素材，可使用默认图标或上传新素材。",
+                          "No assets. Use default icons or upload new assets.",
                         )}
                       </p>
                     </Show>
@@ -1186,70 +1293,47 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
             >
               <p id="im-picker-help" class="im-rule">
                 {uxText(
-                  "删除上传素材会从素材库移除；删除内置素材仅移除可选项，不删除程序原文件。已应用的素材须先更换并保存。",
-                  "Uploads are removed from the library; built-in program files are retained. Replace active choices before deleting.",
+                  "已应用的素材须先更换并保存，再从素材库删除。",
+                  "Replace and save active choices before deleting assets from the library.",
                 )}
               </p>
-              <input
-                type="search"
-                aria-label={uxText("搜索素材", "Search assets")}
-                value={assetQuery()}
-                onInput={(event) => setAssetQuery(event.currentTarget.value)}
-                placeholder={uxText("素材名称", "Asset name")}
-              />
-              <div class="im-asset-grid im-library-grid">
-                <For
-                  each={allIconAssets().filter((asset) =>
-                    `${asset.name} ${asset.id}`
-                      .toLowerCase()
-                      .includes(assetQuery().trim().toLowerCase()),
-                  )}
-                >
-                  {(asset) => (
-                    <div
-                      class="im-choice im-asset"
-                      data-library-asset={asset.id}
-                    >
-                      <img
-                        src={asset.url}
-                        alt=""
-                        width="64"
-                        height="64"
-                        loading="lazy"
-                      />
-                      <strong>{asset.name}</strong>
-                      <small>
-                        {asset.family === "uploaded"
-                          ? uxText("我的上传", "My upload")
-                          : uxText("内置素材", "Built-in asset")}
-                      </small>
-                      <button
-                        type="button"
-                        disabled={
-                          locked() ||
-                          uploadBusy() ||
-                          assetUsage(asset.id).length > 0
-                        }
-                        onClick={() => void deleteAsset(asset.id)}
-                        data-action="delete-asset"
-                        aria-label={uxText(
-                          `删除 ${asset.name}`,
-                          `Delete ${asset.name}`,
-                        )}
-                      >
-                        {assetUsage(asset.id).length
-                          ? uxText("正在使用", "In use")
-                          : libraryDeleting()
-                            ? uxText("删除中…", "Removing…")
-                            : uxText("删除", "Delete")}
-                      </button>
+              <Show when={iconAssetById(libraryPreview())} fallback={<p class="im-empty">{uxText("素材已删除，请关闭详情。", "Asset removed. Close this dialog.")}</p>}>
+                {asset => <div class="im-asset-detail">
+                  <div class="im-library-preview">
+                    <img src={asset().url} alt={asset().name} width="160" height="160" />
+                    <div>
+                      <strong>{asset().name}</strong>
+                      <small>{iconFormatLabel(asset().name, asset().source)}</small>
+                      <p class="im-usage">{assetUsage(asset().id).length
+                        ? uxText(`已保存或草稿使用：${assetUsage(asset().id).map(label).join("、")}`, `Used in saved settings or draft: ${assetUsage(asset().id).map(label).join(", ")}`)
+                        : uxText("尚未应用到任何类型", "Not assigned to any type")}</p>
+                      <div class="im-detail-actions">
+                        <TransparentIconAction asset={asset()} disabled={locked()} />
+                        <button type="button" disabled={locked() || uploadBusy() || !!assetUsage(asset().id).length || iconTransparencyBusy(asset().id)} onClick={() => void deleteAsset(asset().id)} data-action="delete-asset">{uxText("删除素材", "Delete asset")}</button>
+                      </div>
                     </div>
-                  )}
-                </For>
-              </div>
+                  </div>
+                  <fieldset class="im-apply-targets" disabled={locked() || conflicts().length > 0}>
+                    <legend>{uxText("应用到文件类型", "Assign to file types")}</legend>
+                    <p class="im-rule">{uxText("可多选，先加入草稿，再统一保存。", "Select multiple types, add to draft, then save together.")}</p>
+                    <input class="im-apply-search" type="search" aria-label={uxText("搜索应用类型", "Search assignment types")} placeholder={uxText("搜索文件夹、MP3、PDF…", "Search folders, MP3, PDF…")} value={applyQuery()} onInput={event => setApplyQuery(event.currentTarget.value)} />
+                    <div class="im-apply-options">
+                      <For each={assignmentTargets()}>{item => <label>
+                        <input type="checkbox" checked={applyTargets().includes(item.id)} onChange={event => setApplyTargets(old => event.currentTarget.checked ? [...old, item.id] : old.filter(id => id !== item.id))} />
+                        <span>{label(item)}</span>
+                        <Show when={effectiveAsset(draft(), item) === asset().id}><small>{uxText("已选用", "Selected")}</small></Show>
+                      </label>}</For>
+                      <Show when={!assignmentTargets().length}><p class="im-empty">{uxText("没有匹配的文件类型", "No matching file types")}</p></Show>
+                    </div>
+                  </fieldset>
+                </div>}
+              </Show>
             </Show>
           </div>
           <footer class="im-picker-footer">
+            <Show when={libraryMode() && iconAssetById(libraryPreview())}>
+              <button type="button" class="im-primary" disabled={locked() || conflicts().length > 0 || !applyTargets().length} onClick={applyAsset} data-action="apply-asset">{uxText(`加入待保存（${applyTargets().length}）`, `Add to draft (${applyTargets().length})`)}</button>
+            </Show>
             <Show when={!libraryMode()}>
               <div class="im-picker-nav">
                 <button
@@ -1281,14 +1365,16 @@ export const IconManagerPanel = (props: IconManagerPanelProps) => {
               data-action="done"
             >
               {libraryMode()
-                ? uxText("关闭素材库", "Close library")
+                ? uxText("关闭详情", "Close details")
                 : uxText("完成选择", "Done")}
             </button>
             <Show when={!libraryMode()}>
               <small>
                 {uxText(
-                  "选好后请点击页面“保存更改”。",
-                  "Save changes on the page when finished.",
+                  dirty() ? `${changedIds().length} 项待保存` : "未更改",
+                  dirty()
+                    ? `${changedIds().length} unsaved changes`
+                    : "No changes",
                 )}
               </small>
             </Show>
@@ -1312,9 +1398,6 @@ const IconManager = () => {
         </p>
       }
     >
-      <div class="icon-manager">
-        <IconServiceStatus />
-      </div>
       <IconManagerPanel load={loadIconSettings} save={saveIconSettings} />
     </Show>
   )

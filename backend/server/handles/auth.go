@@ -202,6 +202,7 @@ func Verify2FA(c *gin.Context) {
 }
 
 func LogOut(c *gin.Context) {
+	derivativeRevokeSession(c.GetHeader("Authorization"))
 	err := common.InvalidateToken(c.GetHeader("Authorization"))
 	if err != nil {
 		common.ErrorResp(c, err, 500)

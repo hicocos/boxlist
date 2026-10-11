@@ -2,7 +2,7 @@ import { Center, VStack, Icon } from "@hope-ui/solid"
 import { Motion } from "solid-motionone"
 import { useContextMenu } from "solid-contextmenu"
 import { batch, Show } from "solid-js"
-import { CenterLoading, LinkWithPush, ImageWithError } from "~/components"
+import { CenterLoading, LinkWithPush } from "~/components"
 import { usePath, useRouter } from "~/hooks"
 import { checkboxOpen, getMainColor, local, selectObj } from "~/store"
 import { ObjType, StoreObj } from "~/types"
@@ -12,6 +12,7 @@ import { ItemCheckbox, useSelectWithMouse, useFolderVisibility } from "./helper"
 import { useReducedMotion } from "~/hooks/useReducedMotion"
 import { FileName } from "./FileName"
 import { uxText } from "~/utils/ux"
+import { DerivativeThumbnail } from "~/components/DerivativeThumbnail"
 
 export const GridItem = (props: { obj: StoreObj; index: number }) => {
   const isVisible = useFolderVisibility()
@@ -123,18 +124,17 @@ export const GridItem = (props: { obj: StoreObj; index: number }) => {
                 }}
               />
             </Show>
-            <Show when={props.obj.thumb} fallback={objIcon}>
-              <ImageWithError
+            <DerivativeThumbnail
+                obj={props.obj}
+                alt={props.obj.name}
                 maxH="$full"
                 maxW="$full"
                 rounded="$lg"
                 shadow="$md"
                 fallback={<CenterLoading size="lg" />}
                 fallbackErr={objIcon}
-                src={props.obj.thumb}
                 loading="lazy"
-              />
-            </Show>
+            />
           </Center>
           <FileName name={props.obj.name} directory={props.obj.is_dir} />
         </VStack>

@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/OpenListTeam/OpenList/v4/internal/bootstrap/data"
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
 	"github.com/OpenListTeam/OpenList/v4/internal/db"
+	"github.com/OpenListTeam/OpenList/v4/internal/derivatives"
 	"github.com/OpenListTeam/OpenList/v4/internal/fs"
 	"github.com/OpenListTeam/OpenList/v4/pkg/utils"
 	"github.com/OpenListTeam/OpenList/v4/server"
@@ -92,11 +94,18 @@ func Start() {
 	InitOfflineDownloadTools()
 	LoadStorages()
 	InitTaskManager()
+	if manager, err := derivatives.New(db.GetDb(), filepath.Join(flags.DataDir, "derivatives")); err != nil {
+		log.Error("derivatives unavailable: check private data directory and configuration")
+	} else {
+		derivatives.Default = manager
+		manager.Start()
+	}
 	if !flags.Debug && !flags.Dev {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.New()
 
+	r.Use(middlewares.ProtectDerivativeTicket)
 	// gin log
 	if conf.Conf.Log.Filter.Enable {
 		r.Use(middlewares.FilteredLogger())
@@ -273,6 +282,9 @@ func Start() {
 
 func Shutdown(timeout time.Duration) {
 	utils.Log.Println("Shutdown server...")
+	if derivatives.Default != nil {
+		derivatives.Default.Close()
+	}
 	fs.ArchiveContentUploadTaskManager.RemoveAll()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()

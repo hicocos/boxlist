@@ -70,6 +70,8 @@ func Init(e *gin.Engine) {
 	g.HEAD("/sad/:sid/*path", middlewares.PathParse, middlewares.SharingIdParse, handles.SharingArchiveExtract)
 
 	api := g.Group("/api")
+	api.GET("/fs/derivatives/:id/:profile", handles.ReadDerivative)
+	api.HEAD("/fs/derivatives/:id/:profile", handles.ReadDerivative)
 	auth := api.Group("", middlewares.Auth(false))
 	webauthn := api.Group("/authn", middlewares.Authn)
 
@@ -172,6 +174,8 @@ func admin(g *gin.RouterGroup) {
 	setting.POST("/set_thunder_browser", handles.SetThunderBrowser)
 	setting.POST("/set_guangyapan", handles.SetGuangYaPan)
 
+	derivativeAdminRoutes(g.Group("/derivatives"))
+
 	// retain /admin/task API to ensure compatibility with legacy automation scripts
 	_task(g.Group("/task"))
 
@@ -193,6 +197,7 @@ func admin(g *gin.RouterGroup) {
 }
 
 func fsAndShare(g *gin.RouterGroup) {
+	g.POST("/derivatives/status", handles.DerivativeStatus)
 	g.Any("/list", handles.FsListSplit)
 	g.Any("/get", handles.FsGetSplit)
 	a := g.Group("/archive")

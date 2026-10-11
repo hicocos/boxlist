@@ -9,48 +9,44 @@ import (
 
 // Validate recognized Python-compatible schema BEFORE recovery can unlink files.
 func (s *store) validateSchema() error {
-	for table, want := range map[string]map[string]string{
-		"assets":          {"id": "TEXT", "owner": "TEXT", "request_id": "TEXT", "content_sha": "TEXT", "name": "TEXT", "width": "INTEGER", "height": "INTEGER", "bytes": "INTEGER", "original_bytes": "INTEGER", "created_at": "TEXT", "deleted_at": "TEXT"},
-		"hidden_builtins": {"id": "TEXT", "deleted_at": "TEXT"},
-	} {
-		rows, err := s.db.Query("PRAGMA table_info(" + table + ")")
-		if err != nil {
+	want := map[string]string{"id": "TEXT", "owner": "TEXT", "request_id": "TEXT", "content_sha": "TEXT", "name": "TEXT", "width": "INTEGER", "height": "INTEGER", "bytes": "INTEGER", "original_bytes": "INTEGER", "created_at": "TEXT", "deleted_at": "TEXT"}
+	rows, err := s.db.Query("PRAGMA table_info(assets)")
+	if err != nil {
+		return err
+	}
+	seen := map[string]bool{}
+	for rows.Next() {
+		var cid, nn, pk int
+		var name, typ string
+		var def any
+		if err = rows.Scan(&cid, &name, &typ, &nn, &def, &pk); err != nil {
+			rows.Close()
 			return err
 		}
-		seen := map[string]bool{}
-		for rows.Next() {
-			var cid, nn, pk int
-			var name, typ string
-			var def any
-			if err = rows.Scan(&cid, &name, &typ, &nn, &def, &pk); err != nil {
-				rows.Close()
-				return err
-			}
-			expected, ok := want[name]
-			if !ok || strings.ToUpper(typ) != expected || (name == "id" && pk != 1) {
-				rows.Close()
-				return errors.New("unrecognized catalog schema")
-			}
-			seen[name] = true
+		expected, ok := want[name]
+		if !ok || strings.ToUpper(typ) != expected || (name == "id" && pk != 1) {
+			rows.Close()
+			return errors.New("unrecognized catalog schema")
 		}
-		err = rows.Err()
-		rows.Close()
-		if err != nil {
-			return err
-		}
-		if len(seen) != len(want) {
-			return errors.New("incomplete catalog schema")
-		}
+		seen[name] = true
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return err
+	}
+	if len(seen) != len(want) {
+		return errors.New("incomplete catalog schema")
 	}
 	var triggers int
-	if err := s.db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND tbl_name IN ('assets','hidden_builtins')").Scan(&triggers); err != nil {
+	if err := s.db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND tbl_name='assets'").Scan(&triggers); err != nil {
 		return err
 	}
 	if triggers != 0 {
 		return errors.New("unexpected catalog triggers")
 	}
 	// Verify the owner/request uniqueness constraint (not merely matching columns).
-	rows, err := s.db.Query("PRAGMA index_list(assets)")
+	rows, err = s.db.Query("PRAGMA index_list(assets)")
 	if err != nil {
 		return err
 	}
@@ -106,8 +102,7 @@ func (s *store) validateSchema() error {
 	if count > MaxAssets || total > MaxStoredBytes {
 		return errors.New("catalog exceeds capacity")
 	}
-	_, err = s.catalog()
-	return err
+	return nil
 }
 func uploadID(owner, key string) string {
 	return "upload-" + fmt.Sprintf("%x", sha256.Sum256([]byte(owner+":"+key)))[:32]

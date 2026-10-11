@@ -1,0 +1,116 @@
+.paged-text {
+  width: 100%;
+  max-width: 960px;
+  min-width: 0;
+  margin-inline: auto;
+  scroll-margin-top: 90px;
+  color: var(--hope-colors-neutral12);
+  background: var(--hope-colors-neutral3);
+  border: 1px solid var(--hope-colors-neutral6);
+  border-radius: 16px;
+  padding: 8px 24px 12px;
+  color-scheme: light;
+}
+.hope-ui-dark .paged-text,
+.paged-text.hope-ui-dark {
+  color-scheme: dark;
+  background: var(--hope-colors-neutral2);
+}
+.text-page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+/* Keep the shared encoding control in normal flow and readable without hover. */
+.text-page-encoding > div {
+  position: static;
+  opacity: 1;
+  width: 104px;
+}
+.text-page-encoding { flex: 0 0 104px; }
+.text-page-encoding .hope-select__trigger { font-size: 12px; min-height: 36px; padding-inline: 8px; border-radius: 8px; }
+.text-page-heading .text-page-controls { justify-content: flex-start; }
+.text-page-controls {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: fit-content;
+  margin: 8px auto;
+  padding: 0;
+  border: 1px solid var(--hope-colors-neutral6);
+  border-radius: 8px;
+  background: var(--hope-colors-neutral2);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.text-page-heading .text-page-controls { margin-inline: 0; }
+.text-page-controls label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  color: var(--hope-colors-neutral11);
+  padding-inline: 8px;
+  border-inline: 1px solid var(--hope-colors-neutral6);
+}
+.text-page-controls button,
+.text-page-controls input {
+  font: inherit;
+  color: var(--hope-colors-neutral12);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  min-height: 36px;
+  padding: 0;
+}
+.text-page-controls button { display: grid; place-items: center; cursor: pointer; width: 36px; flex: 0 0 36px; font-size: 22px; line-height: 1; }
+.text-page-controls button:disabled { opacity: .4; cursor: not-allowed; }
+@media (hover: hover) {
+  .text-page-controls button:hover:not(:disabled) {
+    background: var(--hope-colors-neutral4);
+    border-color: var(--hope-colors-neutral8);
+  }
+}
+.text-page-controls input { width: 3ch; min-width: 28px; text-align: center; padding-inline: 0; appearance: textfield; }
+.text-page-controls input:hover { background: var(--hope-colors-neutral4); }
+.text-page-controls input::-webkit-inner-spin-button,
+.text-page-controls input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+.text-page-controls :focus-visible {
+  outline: 2px solid var(--hope-colors-primary9);
+  outline-offset: 3px;
+}
+.text-page-content {
+  box-sizing: border-box;
+  max-width: 54em;
+  margin: 0 auto;
+  padding: 12px 0 16px;
+  border-block: 1px solid var(--hope-colors-neutral6);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.65;
+  letter-spacing: normal;
+  color: inherit;
+  background: transparent;
+  tab-size: 4;
+}
+@media (max-width: 640px) {
+  .paged-text {
+    padding: 4px 10px 8px;
+    border-radius: 12px;
+    scroll-margin-top: 80px;
+  }
+  .text-page-controls label { padding-inline: 6px; }
+  .text-page-controls button { width: 36px; flex-basis: 36px; }
+  .text-page-content {
+    padding: 10px 0 14px;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+}

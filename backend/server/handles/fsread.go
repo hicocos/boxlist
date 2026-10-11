@@ -44,6 +44,7 @@ type ObjResp struct {
 	HashInfoStr  string                     `json:"hashinfo"`
 	HashInfo     map[*utils.HashType]string `json:"hash_info"`
 	MountDetails *model.StorageDetails      `json:"mount_details,omitempty"`
+	Derivatives  map[string]DerivativeView  `json:"derivatives,omitempty"`
 }
 
 type FsListResp struct {
@@ -115,7 +116,7 @@ func FsList(c *gin.Context, req *ListReq, user *model.User) {
 		}
 	}
 	common.SuccessResp(c, FsListResp{
-		Content:            toObjsResp(objs, reqPath, isEncrypt(meta, reqPath)),
+		Content:            overlayDerivativeViews(c, toObjsResp(objs, reqPath, isEncrypt(meta, reqPath)), objs, reqPath, req.Password, nil),
 		Total:              int64(total),
 		Readme:             getReadme(meta, reqPath),
 		Header:             getHeader(meta, reqPath),
@@ -369,12 +370,13 @@ func FsGet(c *gin.Context, req *FsGetReq, user *model.User) {
 			Type:         utils.GetFileType(obj.GetName()),
 			Thumb:        thumb,
 			MountDetails: mountDetails,
+			Derivatives:  derivativeViews(c, parentPath, []model.Obj{obj}, req.Password, nil)[obj.GetName()],
 		},
 		RawURL:   rawURL,
 		Readme:   getReadme(meta, reqPath),
 		Header:   getHeader(meta, reqPath),
 		Provider: provider,
-		Related:  toObjsResp(related, parentPath, isEncrypt(parentMeta, parentPath)),
+		Related:  overlayDerivativeViews(c, toObjsResp(related, parentPath, isEncrypt(parentMeta, parentPath)), related, parentPath, req.Password, nil),
 	})
 }
 

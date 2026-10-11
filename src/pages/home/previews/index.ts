@@ -70,6 +70,12 @@ const previews: Preview[] = [
     prior: true,
   },
   {
+    key: "paged_text",
+    type: ObjType.TEXT,
+    component: lazy(() => import("./paged-text")),
+    prior: true,
+  },
+  {
     key: "markdown_with_word_wrap",
     type: ObjType.TEXT,
     component: lazy(() => import("./markdown_with_word_wrap")),
@@ -204,6 +210,10 @@ export const getPreviews = (
   // internal previews
   if (!isShare() || getSettingBool("share_preview")) {
     previews.forEach((preview) => {
+      // Keep both text renderers available; only the preferred one precedes Download.
+      const preferredTextPreview = file.size > 64 * 1024
+        ? "paged_text"
+        : "markdown_with_word_wrap"
       if (preview.provider && !preview.provider.test(file.provider)) {
         return
       }
@@ -221,7 +231,8 @@ export const getPreviews = (
         if (isInArchive && preview.availableInArchive === false) {
           return
         }
-        if (!downloadPrior && isPrior(preview.prior)) {
+        const textPreview = preview.key === "paged_text" || preview.key === "markdown_with_word_wrap"
+        if (!downloadPrior && isPrior(preview.prior) && (!textPreview || preview.key === preferredTextPreview)) {
           res.push(r)
         } else {
           subsequent.push(r)
@@ -250,19 +261,11 @@ export const getPreviews = (
     component: lazy(() => import("./download")),
   }
 
-  // Condition for the new requirement: a large text file.
-  const isLargeTextFile =
-    file.type === ObjType.TEXT && file.size >= 1 * 1024 * 1024
-
   // Conditions from the previous logic for small, unrecognized files.
   const noPreviewsFound = res.length === 0 && subsequent.length === 0
   const isSmallFile = file.size < 1 * 1024 * 1024
 
-  if (isLargeTextFile) {
-    // Case 1: Large text file. Place "Download" at the very beginning.
-    // The standard text previews (Markdown, etc.) are already in `res` and will appear after it.
-    res.unshift(downloadComponent)
-  } else if (noPreviewsFound && isSmallFile && file.type !== ObjType.IMAGE) {
+  if (noPreviewsFound && isSmallFile && file.type !== ObjType.IMAGE) {
     // Case 2: No other previews found for a small file.
     // Add "Download" first, then suggest default text previews.
     res.push(downloadComponent)

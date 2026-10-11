@@ -7,7 +7,8 @@ import (
 )
 
 type ObjWrapName struct {
-	Name string
+	ObservedAt time.Time
+	Name       string
 	Obj
 }
 

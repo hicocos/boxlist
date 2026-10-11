@@ -6,6 +6,7 @@ html.openlist-reader-page {
 html.openlist-reader-page body {
   background: #111318 !important;
   color: #e8e9ed;
+  color-scheme: dark;
 }
 html.openlist-reader-page #site-stats,
 html.openlist-reader-page #customize,

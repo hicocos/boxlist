@@ -124,3 +124,27 @@
     display: none;
   }
 }
+
+.openlist-video-player .video-recovery {
+  position: absolute;
+  inset: 16px 16px auto;
+  z-index: 40;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--hope-colors-neutral2);
+  color: var(--hope-colors-neutral12);
+  border: 1px solid var(--hope-colors-neutral7);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.openlist-video-player .video-recovery[hidden] { display: none; }
+.video-recovery p { margin: 0 0 8px; }
+.video-recovery button {
+  color: inherit;
+  background: var(--hope-colors-neutral4);
+  border: 1px solid var(--hope-colors-neutral7);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.video-recovery button:focus-visible { outline: 2px solid var(--hope-colors-primary9); outline-offset: 2px; }

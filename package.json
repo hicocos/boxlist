@@ -1,24 +1,25 @@
 {
-  "name": "@openlist-frontend/openlist-frontend",
-  "version": "4.2.6",
+  "name": "boxlist",
+  "version": "1.0.0",
   "type": "module",
+  "private": true,
   "author": {
     "name": "The OpenList Projects Contributors",
     "url": "https://github.com/OpenListTeam"
   },
-  "description": "A new AList Fork to Anti Trust Crisis",
+  "description": "Multi-storage file management and online preview, based on OpenList",
   "packageManager": "pnpm@11.24.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OpenListTeam/OpenList-Frontend.git"
+    "url": "git+https://github.com/hicocos/boxlist.git"
   },
   "bugs": {
-    "url": "https://github.com/OpenListTeam/OpenList/issues"
+    "url": "https://github.com/hicocos/boxlist/issues"
   },
   "files": [
     "dist"
   ],
-  "homepage": "https://openlist.team/",
+  "homepage": "https://github.com/hicocos/boxlist",
   "scripts": {
     "start": "vite",
     "dev": "vite --force",

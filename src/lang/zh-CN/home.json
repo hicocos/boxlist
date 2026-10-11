@@ -30,6 +30,12 @@
     "exit_fullview": "退出网页全屏",
     "auto_fit": "自适应",
     "reset_zoom": "重置缩放",
+    "paged_text": {
+      "pagination": "文本分页",
+      "previous": "上一页",
+      "next": "下一页",
+      "page": "页码"
+    },
     "names": {
       "download": "直接下载",
       "html": "HTML 渲染器",
@@ -37,6 +43,7 @@
       "markdown": "Markdown 渲染器",
       "flash": "Flash 播放器",
       "markdown_with_word_wrap": "Markdown 渲染器（带换行）",
+      "paged_text": "分页文本阅读器",
       "url_open": "打开网址",
       "text_editor": "文本编辑器",
       "image_lite": "图像查看器",

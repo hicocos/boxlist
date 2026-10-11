@@ -1,4 +1,5 @@
 import { PageResp } from "~/types/resp"
+import type { Derivatives } from "./derivatives"
 
 export enum ObjType {
   UNKNOWN,
@@ -18,6 +19,7 @@ export interface Obj {
   modified: string
   sign?: string
   thumb: string
+  derivatives?: Derivatives
   type: ObjType
   mount_details?: MountDetails
 }

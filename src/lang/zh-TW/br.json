@@ -13,5 +13,6 @@
   "override": "覆蓋",
   "encrypt_password_placeholder": "如果您不需要加密，請留空",
   "encrypt_password": "加密密碼",
-  "wrong_encrypt_password": "加密密碼錯誤"
+  "wrong_encrypt_password": "加密密碼錯誤",
+  "derivatives": "S3 預覽圖"
 }

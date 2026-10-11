@@ -143,10 +143,11 @@ type StoragePolicy struct {
 }
 
 type Pagination struct {
-	Page      int    `json:"page"`
-	PageSize  int    `json:"page_size"`
-	IsCursor  bool   `json:"is_cursor"`
-	NextToken string `json:"next_token,omitempty"`
+	Page       int    `json:"page"`
+	PageSize   int    `json:"page_size"`
+	TotalItems *int   `json:"total_items,omitempty"`
+	IsCursor   bool   `json:"is_cursor"`
+	NextToken  string `json:"next_token,omitempty"`
 }
 
 type Props struct {

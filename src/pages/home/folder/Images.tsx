@@ -1,13 +1,15 @@
 import { Box, Flex, Grid, Heading, Text, VStack } from "@hope-ui/solid"
-import { For, Show, createMemo } from "solid-js"
+import { For, Show, createMemo, onMount } from "solid-js"
 import { ImageItem } from "./ImageItem"
 import { smartCountMsg, local, objStore } from "~/store"
 import { GridItem } from "./GridItem"
 import { ObjType, StoreObj } from "~/types"
 import { useT } from "~/hooks"
 import { useSelectWithMouse } from "./helper"
+import { markPrimaryReady } from "~/app/primary-ready"
 
 const ImageLayout = (props: { images: StoreObj[] }) => {
+  onMount(markPrimaryReady)
   const t = useT()
   const folders = createMemo(() => (
     <Grid

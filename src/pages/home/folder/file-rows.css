@@ -56,7 +56,7 @@
   align-items: center;
   justify-content: inherit;
   gap: 3px;
-  min-height: 44px;
+  min-height: 0;
   max-width: 100%;
   min-width: 0;
   padding: 0;
@@ -65,12 +65,12 @@
   font: inherit;
   font-weight: bold;
   font-size: 0.875rem;
+  line-height: 1.4;
   color: inherit;
   background: transparent;
   cursor: pointer;
   text-align: inherit;
   flex-shrink: 0;
-  min-width: 44px;
 }
 .ux-sort-label {
   min-width: 0;

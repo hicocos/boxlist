@@ -32,6 +32,8 @@ import { AutoHeightPlugin, VideoBox } from "./video_box"
 import { ArtPlayerIconsSubtitle } from "~/components/icons"
 import { useNavigate } from "@solidjs/router"
 import "./artplayer.css"
+import { installVideoRecovery } from "./video-recovery"
+import type { VideoRecovery } from "./video-recovery"
 
 const Preview = () => {
   const { pathname, searchParams } = useRouter()
@@ -73,6 +75,7 @@ const Preview = () => {
   let disposed = false
   let switchGeneration = 0
   let player: Artplayer
+  let recovery: VideoRecovery | undefined
   let flvPlayer: mpegts.Player
   let hlsPlayer: Hls
   let option: Option = {
@@ -199,6 +202,7 @@ const Preview = () => {
   const enableEnhanceAss = true
 
   const switchUrl = (url: string) => {
+    recovery?.reset()
     const { playing } = player
     player.pause()
     player.option.id = pathname()
@@ -377,6 +381,7 @@ const Preview = () => {
 
   onMount(() => {
     player = new Artplayer(option)
+    recovery = installVideoRecovery(player)
     // Artplayer reparents its root in fullscreen; keep responsive styling with it.
     player.template.$player.classList.add("openlist-video-player")
     createEffect(on(() => objStore.raw_url, switchUrl))
@@ -399,18 +404,11 @@ const Preview = () => {
       if (!autoNext()) return
       next_video()
     })
-    player.on("error", () => {
-      if (player.video.crossOrigin) {
-        console.log(
-          "Error detected. Trying to remove Cross-Origin attribute. Screenshot may not be available.",
-        )
-        player.video.crossOrigin = null
-      }
-    })
   })
   onCleanup(() => {
     disposed = true
     switchGeneration++
+    recovery?.destroy()
     setShouldKeepState(false)
     if (player) {
       player.fullscreenWeb = false

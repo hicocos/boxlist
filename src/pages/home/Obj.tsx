@@ -12,7 +12,7 @@ import {
   Suspense,
   Switch,
 } from "solid-js"
-import { FullLoading, LinkWithBase } from "~/components"
+import { LinkWithBase } from "~/components"
 import { useObjTitle, usePath, useRouter, useT } from "~/hooks"
 import {
   getPagination,
@@ -36,6 +36,7 @@ import {
 import { validPage } from "~/store/navigation-state"
 import { DirectoryError } from "./DirectoryError"
 import "./directory-navigation.css"
+import { FullLoading } from "~/components/FullLoading"
 
 const Folder = lazy(() => import("./folder/Folder"))
 const File = lazy(() => import("./file/File"))
@@ -140,9 +141,6 @@ export const Obj = () => {
             >
               <FullLoading />
             </div>
-            {/* <Show when={layout() === "list"} fallback={<GridSkeleton />}>
-              <ListSkeleton />
-            </Show> */}
           </Match>
           <Match when={objStore.state === State.NeedPassword}>
             <Password

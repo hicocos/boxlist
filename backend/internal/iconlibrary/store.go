@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,17 +19,35 @@ import (
 )
 
 type Asset struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Format string `json:"format"`
+	Source string `json:"source"`
+	// Width and Height describe the icon display box, not GIF source dimensions.
 	Width     int    `json:"width"`
 	Height    int    `json:"height"`
 	Bytes     int64  `json:"bytes"`
 	CreatedAt string `json:"created_at"`
+	Revision  string `json:"revision"`
 }
+
+func imageFormat(name string) string {
+	if strings.HasSuffix(strings.ToLower(name), ".gif") {
+		return "gif"
+	}
+	return "png"
+}
+
+func previewSuffix(name string) string {
+	if imageFormat(name) == "gif" {
+		return ".gif"
+	}
+	return ".webp"
+}
+
 type Catalog struct {
-	Version        int      `json:"version"`
-	Assets         []Asset  `json:"assets"`
-	HiddenBuiltins []string `json:"hidden_builtins"`
+	Version int     `json:"version"`
+	Assets  []Asset `json:"assets"`
 }
 type saved struct {
 	Asset  Asset `json:"asset"`
@@ -41,21 +60,23 @@ type record struct {
 	deleted             sql.NullString
 }
 
-const columns = "id,name,width,height,bytes,created_at,owner,request_id,content_sha,original_bytes,deleted_at"
+const columns = "id,name,width,height,bytes,created_at,owner,request_id,content_sha,original_bytes,deleted_at,CASE WHEN EXISTS (SELECT 1 FROM builtin_seeds WHERE asset_id=assets.id) THEN 'builtin' ELSE 'uploaded' END"
 
 type scanner interface{ Scan(...any) error }
 
 func scanRecord(s scanner) (record, error) {
 	var r record
-	err := s.Scan(&r.ID, &r.Name, &r.Width, &r.Height, &r.Bytes, &r.CreatedAt, &r.owner, &r.request, &r.sha, &r.originalBytes, &r.deleted)
+	err := s.Scan(&r.ID, &r.Name, &r.Width, &r.Height, &r.Bytes, &r.CreatedAt, &r.owner, &r.request, &r.sha, &r.originalBytes, &r.deleted, &r.Source)
+	r.Format = imageFormat(r.Name)
 	return r, err
 }
 
 type store struct {
-	root string
-	db   *sql.DB
-	lock *os.File
-	mu   sync.Mutex
+	root      string
+	db        *sql.DB
+	lock      *os.File
+	mu        sync.Mutex
+	revisions map[string]string
 }
 
 func privateDir(path string) error {
@@ -147,7 +168,7 @@ func newStore(root string) (s *store, err error) {
 		lock.Close()
 		return nil, errors.New("icon root is already open")
 	}
-	s = &store{root: root, lock: lock}
+	s = &store{root: root, lock: lock, revisions: make(map[string]string)}
 	defer func() {
 		if err != nil {
 			s.close()
@@ -199,8 +220,7 @@ func newStore(root string) (s *store, err error) {
 	}
 	for _, q := range []string{"PRAGMA busy_timeout=2000", "PRAGMA journal_mode=WAL", "PRAGMA synchronous=FULL", `CREATE TABLE IF NOT EXISTS assets (
  id TEXT PRIMARY KEY,owner TEXT NOT NULL,request_id TEXT NOT NULL,content_sha TEXT NOT NULL,name TEXT NOT NULL,
- width INTEGER NOT NULL CHECK(width=256),height INTEGER NOT NULL CHECK(height=256),bytes INTEGER NOT NULL CHECK(bytes>0),original_bytes INTEGER NOT NULL CHECK(original_bytes>0),created_at TEXT NOT NULL,deleted_at TEXT,UNIQUE(owner,request_id))`,
-		`CREATE TABLE IF NOT EXISTS hidden_builtins (id TEXT PRIMARY KEY,deleted_at TEXT NOT NULL)`} {
+ width INTEGER NOT NULL CHECK(width=256),height INTEGER NOT NULL CHECK(height=256),bytes INTEGER NOT NULL CHECK(bytes>0),original_bytes INTEGER NOT NULL CHECK(original_bytes>0),created_at TEXT NOT NULL,deleted_at TEXT,UNIQUE(owner,request_id))`} {
 		if _, err = s.db.Exec(q); err != nil {
 			return s, err
 		}
@@ -236,7 +256,19 @@ func newStore(root string) (s *store, err error) {
 	if err = s.validateSchema(); err != nil {
 		return s, err
 	}
+	if _, err = s.db.Exec(`CREATE TABLE IF NOT EXISTS builtin_seeds (
+ seed_key TEXT PRIMARY KEY, asset_id TEXT NOT NULL UNIQUE,
+ state TEXT NOT NULL CHECK(state IN ('pending','installed')))`); err != nil {
+		return s, err
+	}
+	// Retire obsolete visibility preferences without changing uploaded asset records.
+	if _, err = s.db.Exec("DROP TABLE IF EXISTS hidden_builtins"); err != nil {
+		return s, err
+	}
 	if err = s.recover(); err != nil {
+		return s, err
+	}
+	if _, err = s.catalog(); err != nil {
 		return s, err
 	}
 	if err = syncDir(root); err != nil {
@@ -256,6 +288,9 @@ func (s *store) close() error {
 }
 func (s *store) path(dir, id, suffix string) string { return filepath.Join(s.root, dir, id+suffix) }
 func (s *store) recover() error {
+	if err := s.recoverReplacement(); err != nil {
+		return err
+	}
 	rows, err := s.db.Query("SELECT " + columns + " FROM assets")
 	if err != nil {
 		return err
@@ -282,7 +317,7 @@ func (s *store) recover() error {
 	if err != nil {
 		return err
 	}
-	for _, d := range []struct{ dir, suffix string }{{"originals", ".original"}, {"previews", ".webp"}, {".staging", ".tmp"}} {
+	for _, d := range []struct{ dir, suffix string }{{"originals", ".original"}, {"previews", ".webp"}, {"previews", ".gif"}, {".staging", ".tmp"}} {
 		entries, e := os.ReadDir(filepath.Join(s.root, d.dir))
 		if e != nil {
 			return e
@@ -310,7 +345,10 @@ func (s *store) recover() error {
 func (s *store) catalog() (Catalog, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	c := Catalog{1, []Asset{}, []string{}}
+	if err := s.recoverReplacement(); err != nil {
+		return Catalog{}, fault(503)
+	}
+	c := Catalog{Version: 1, Assets: []Asset{}}
 	rows, err := s.db.Query("SELECT " + columns + " FROM assets WHERE deleted_at IS NULL ORDER BY created_at,id LIMIT 201")
 	if err != nil {
 		return c, fault(503)
@@ -321,26 +359,15 @@ func (s *store) catalog() (Catalog, error) {
 			rows.Close()
 			return c, fault(503)
 		}
+		if e = s.fillRevision(&r.Asset); e != nil {
+			rows.Close()
+			return c, fault(503)
+		}
 		c.Assets = append(c.Assets, r.Asset)
 	}
 	err = rows.Err()
 	rows.Close()
 	if err != nil {
-		return c, fault(503)
-	}
-	rows, err = s.db.Query("SELECT id FROM hidden_builtins ORDER BY id")
-	if err != nil {
-		return c, fault(503)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var id string
-		if rows.Scan(&id) != nil || !builtinIDs[id] {
-			return c, fault(503)
-		}
-		c.HiddenBuiltins = append(c.HiddenBuiltins, id)
-	}
-	if rows.Err() != nil {
 		return c, fault(503)
 	}
 	return c, nil
@@ -355,7 +382,7 @@ func (s *store) check(r record, sha, name string) (saved, error) {
 	for _, v := range []struct {
 		dir, suffix string
 		size        int64
-	}{{"originals", ".original", r.originalBytes}, {"previews", ".webp", r.Bytes}} {
+	}{{"originals", ".original", r.originalBytes}, {"previews", previewSuffix(r.Name), r.Bytes}} {
 		f, e := openPrivate(s.path(v.dir, r.ID, v.suffix), unix.O_RDONLY)
 		if e != nil {
 			return saved{}, fault(503)
@@ -366,11 +393,17 @@ func (s *store) check(r record, sha, name string) (saved, error) {
 			return saved{}, fault(503)
 		}
 	}
+	if err := s.fillRevision(&r.Asset); err != nil {
+		return saved{}, fault(503)
+	}
 	return saved{r.Asset, true}, nil
 }
 func (s *store) retry(owner, key, name string, data []byte) (saved, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.recoverReplacement(); err != nil {
+		return saved{}, false, fault(503)
+	}
 	r, err := scanRecord(s.db.QueryRow("SELECT "+columns+" FROM assets WHERE owner=? AND request_id=?", owner, key))
 	if err == sql.ErrNoRows {
 		return saved{}, false, nil
@@ -409,6 +442,9 @@ func (s *store) stage(data []byte) (string, error) {
 func (s *store) commit(owner, key, name string, original, preview []byte) (saved, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.recoverReplacement(); err != nil {
+		return saved{}, fault(503)
+	}
 	empty := saved{}
 	sha := fmt.Sprintf("%x", sha256.Sum256(original))
 	id := "upload-" + fmt.Sprintf("%x", sha256.Sum256([]byte(owner+":"+key)))[:32]
@@ -422,6 +458,10 @@ func (s *store) commit(owner, key, name string, original, preview []byte) (saved
 		return s.check(r, sha, name)
 	}
 	if err != sql.ErrNoRows {
+		return empty, fault(503)
+	}
+	var builtin bool
+	if err = tx.QueryRow("SELECT EXISTS (SELECT 1 FROM builtin_seeds WHERE asset_id=?)", id).Scan(&builtin); err != nil {
 		return empty, fault(503)
 	}
 	var count, total int64
@@ -453,7 +493,7 @@ func (s *store) commit(owner, key, name string, original, preview []byte) (saved
 		stages = append(stages, stage)
 		dir, suffix := "originals", ".original"
 		if i == 1 {
-			dir, suffix = "previews", ".webp"
+			dir, suffix = "previews", previewSuffix(name)
 		}
 		final := s.path(dir, id, suffix)
 		if e = os.Link(stage, final); e != nil {
@@ -473,39 +513,49 @@ func (s *store) commit(owner, key, name string, original, preview []byte) (saved
 	if err = tx.Commit(); err != nil {
 		return empty, fault(503)
 	}
-	return saved{Asset{id, name, 256, 256, int64(len(preview)), created}, false}, nil
+	revision := contentRevision(preview)
+	s.revisions[id] = revision
+	source := "uploaded"
+	if builtin {
+		source = "builtin"
+	}
+	return saved{Asset{ID: id, Name: name, Format: imageFormat(name), Source: source, Width: 256, Height: 256, Bytes: int64(len(preview)), CreatedAt: created, Revision: revision}, false}, nil
 }
-func (s *store) preview(id string) ([]byte, error) {
+func (s *store) preview(id string) ([]byte, string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if err := s.recoverReplacement(); err != nil {
+		return nil, "", fault(503)
+	}
 	var size int64
-	err := s.db.QueryRow("SELECT bytes FROM assets WHERE id=? AND deleted_at IS NULL", id).Scan(&size)
+	var name string
+	err := s.db.QueryRow("SELECT bytes,name FROM assets WHERE id=? AND deleted_at IS NULL", id).Scan(&size, &name)
 	if err == sql.ErrNoRows {
-		return nil, fault(404)
+		return nil, "", fault(404)
 	}
 	if err != nil {
-		return nil, fault(503)
+		return nil, "", fault(503)
 	}
-	f, err := openPrivate(s.path("previews", id, ".webp"), unix.O_RDONLY)
+	f, err := openPrivate(s.path("previews", id, previewSuffix(name)), unix.O_RDONLY)
 	if err != nil {
-		return nil, fault(404)
+		return nil, "", fault(404)
 	}
 	defer f.Close()
 	i, err := f.Stat()
 	if err != nil || size <= 0 || size > MaxInputBytes || i.Size() != size {
-		return nil, fault(404)
+		return nil, "", fault(404)
 	}
 	data, err := io.ReadAll(io.LimitReader(f, size+1))
 	if err != nil || int64(len(data)) != size {
-		return nil, fault(404)
+		return nil, "", fault(404)
 	}
-	return data, nil
+	return data, previewSuffix(name), nil
 }
 func (s *store) retire(r record) error {
 	for _, v := range []struct {
 		dir, suffix string
 		size        int64
-	}{{"originals", ".original", r.originalBytes}, {"previews", ".webp", r.Bytes}} {
+	}{{"originals", ".original", r.originalBytes}, {"previews", previewSuffix(r.Name), r.Bytes}} {
 		src, dst := s.path(v.dir, r.ID, v.suffix), s.path("trash/"+v.dir, r.ID, v.suffix)
 		f, err := openPrivate(src, unix.O_RDONLY)
 		if os.IsNotExist(err) {
@@ -551,14 +601,10 @@ func (s *store) retire(r record) error {
 func (s *store) delete(id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	created := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
-	if builtinIDs[id] {
-		_, err := s.db.Exec("INSERT INTO hidden_builtins(id,deleted_at) VALUES(?,?) ON CONFLICT(id) DO NOTHING", id, created)
-		if err != nil {
-			return fault(503)
-		}
-		return nil
+	if err := s.recoverReplacement(); err != nil {
+		return fault(503)
 	}
+	created := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	r, err := scanRecord(s.db.QueryRow("SELECT "+columns+" FROM assets WHERE id=?", id))
 	if err == sql.ErrNoRows {
 		return fault(404)

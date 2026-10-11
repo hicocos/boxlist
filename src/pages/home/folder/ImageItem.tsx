@@ -2,7 +2,7 @@ import { Center, VStack, Icon } from "@hope-ui/solid"
 import { Motion } from "solid-motionone"
 import { useContextMenu } from "solid-contextmenu"
 import { batch, Show } from "solid-js"
-import { CenterLoading, ImageWithError } from "~/components"
+import { CenterLoading } from "~/components"
 import { useLink, usePath } from "~/hooks"
 import { checkboxOpen, getMainColor, selectObj } from "~/store"
 import { ObjType, StoreObj } from "~/types"
@@ -12,6 +12,7 @@ import { ItemCheckbox, useSelectWithMouse, useFolderVisibility } from "./helper"
 import { useReducedMotion } from "~/hooks/useReducedMotion"
 import { FileName } from "./FileName"
 import { uxText } from "~/utils/ux"
+import { DerivativeThumbnail } from "~/components/DerivativeThumbnail"
 
 export const ImageItem = (props: { obj: StoreObj; index: number }) => {
   const isVisible = useFolderVisibility()
@@ -101,7 +102,9 @@ export const ImageItem = (props: { obj: StoreObj; index: number }) => {
                 }}
               />
             </Show>
-            <ImageWithError
+            <DerivativeThumbnail
+              obj={props.obj}
+                alt={props.obj.name}
               h="150px"
               w="$full"
               objectFit="cover"
@@ -109,7 +112,7 @@ export const ImageItem = (props: { obj: StoreObj; index: number }) => {
               shadow="$md"
               fallback={<CenterLoading size="lg" />}
               fallbackErr={objIcon}
-              src={rawLink(props.obj)}
+              original={rawLink(props.obj)}
               loading="lazy"
               on:dblclick={() => {
                 if (!openWithDoubleClick()) return

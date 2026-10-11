@@ -27,13 +27,19 @@
         main_color: undefined,
       }
       window.__dynamic_base__ = window.OPENLIST_CONFIG.cdn || ""
+      document.documentElement.style.setProperty("--startup-accent", window.OPENLIST_CONFIG.main_color || "#1890ff")
     </script>
+    <style>
+      #startup-loading{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none}#startup-loading span{box-sizing:border-box;width:48px;height:48px;border:4px solid #e9ecef;border-top-color:var(--startup-accent,#1890ff);border-left-color:var(--startup-accent,#1890ff);border-radius:50%;animation:startup-spin .65s linear infinite}@keyframes startup-spin{to{transform:rotate(360deg)}}@media(prefers-color-scheme:dark){#startup-loading span{border-right-color:#2b3033;border-bottom-color:#2b3033}}@media(prefers-reduced-motion:reduce){#startup-loading span{animation-duration:1.5s}}
+    </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="startup-loading" role="status" aria-label="正在加载"><span aria-hidden="true"></span></div>
     <div id="root"></div>
 
     <script src="/src/main.tsx" type="module"></script>
-    <!-- customize body -->
+    <template id="deferred-customize-body"><!-- customize body --></template>
+    <script src="/static/startup.js" defer></script>
   </body>
 </html>

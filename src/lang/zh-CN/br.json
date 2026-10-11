@@ -1,5 +1,5 @@
 {
-  "backup": "Backup",
+  "backup": "备份",
   "restore": "还原",
   "start_backup": "开始备份",
   "finish_backup": "完成备份",
@@ -13,5 +13,6 @@
   "override": "覆盖",
   "encrypt_password_placeholder": "如果您不需要加密，请留空",
   "encrypt_password": "加密密码",
-  "wrong_encrypt_password": "加密密码错误"
+  "wrong_encrypt_password": "加密密码错误",
+  "derivatives": "S3 预览图"
 }

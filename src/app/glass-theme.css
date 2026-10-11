@@ -21,7 +21,7 @@ html.openlist-glass-home {
   --glass-link: #7950c5;
   --glass-link-hover: #6334b5;
   --glass-field: rgba(255, 255, 255, 0.14);
-  --glass-code: rgba(0, 0, 0, 0.25);
+  --glass-code: var(--hope-colors-neutral3);
   --glass-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, calc(0.35 * var(--glass-strength))),
     inset -1px -1px 0 rgba(255, 255, 255, calc(0.15 * var(--glass-strength))),
@@ -46,7 +46,7 @@ html.openlist-glass-home .hope-ui-dark {
   --glass-muted: #c3c0d2;
   --glass-border: rgba(255, 255, 255, calc(0.16 * var(--glass-strength)));
   --glass-field: rgba(0, 0, 0, 0.18);
-  --glass-code: rgba(0, 0, 0, 0.25);
+  --glass-code: var(--hope-colors-neutral3);
   --glass-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, calc(0.2 * var(--glass-strength))),
     inset -1px -1px 0 rgba(255, 255, 255, calc(0.08 * var(--glass-strength))),

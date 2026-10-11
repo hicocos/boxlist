@@ -1,0 +1,273 @@
+.directory-reader {
+  --reader-width: 880px;
+  padding-bottom: calc(100px + env(safe-area-inset-bottom));
+}
+.directory-reader[data-width="wide"] {
+  --reader-width: 1100px;
+}
+.directory-reader[data-width="full"] {
+  --reader-width: 100%;
+}
+.directory-reader .reader-header {
+  padding: 12px max(20px, env(safe-area-inset-right)) 12px
+    max(20px, env(safe-area-inset-left));
+  background: #17191e;
+  border-color: #2e3138;
+}
+.directory-reader .reader-header a,
+.directory-reader .reader-header button {
+  background: transparent;
+  border-color: transparent;
+}
+.directory-reader .reader-title {
+  font-size: 16px;
+  letter-spacing: 0.02em;
+}
+.directory-reader .reader-dock {
+  position: fixed;
+  z-index: 20;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(620px, calc(100% - 24px));
+  padding: 8px;
+  border: 1px solid #434750;
+  border-radius: 16px;
+  background: #202329f5;
+  box-shadow: 0 8px 32px #0005;
+}
+.directory-reader .reader-dock button {
+  background: transparent;
+  border-color: transparent;
+}
+.directory-reader .reader-dock .reader-page-trigger {
+  display: flex;
+  flex-direction: column;
+  min-width: 78px;
+  gap: 1px;
+  font-variant-numeric: tabular-nums;
+}
+.directory-reader .reader-page-trigger small {
+  color: #b6bdc8;
+  font-size: 10px;
+}
+.directory-reader .reader-progress-slider {
+  flex: 1;
+  min-width: 30px;
+  accent-color: #9db9e1;
+  min-height: 44px;
+  cursor: pointer;
+}
+.directory-reader .reader-muted {
+  color: #b6bdc8;
+}
+.directory-reader .reader-dialog {
+  box-sizing: border-box;
+  width: min(560px, calc(100% - 32px));
+  max-height: min(800px, calc(100dvh - 48px));
+  margin: auto;
+  padding: 24px;
+  border: 1px solid #434750;
+  border-radius: 18px;
+  color: #e8e9ed;
+  background: #1b1e24;
+  box-shadow: 0 24px 80px #0006;
+  overflow: auto;
+  overscroll-behavior: contain;
+  color-scheme: dark;
+}
+.directory-reader .reader-dialog::backdrop {
+  background: #090b10b3;
+}
+.directory-reader .reader-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.directory-reader .reader-panel-header h2 {
+  margin: 4px 0 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+.directory-reader .reader-panel-header small {
+  font-size: 12px;
+}
+.directory-reader .reader-dialog fieldset {
+  border: 0;
+  border-top: 1px solid #353a44;
+  margin: 0 0 24px;
+  padding: 16px 0 0;
+  min-width: 0;
+}
+.directory-reader .reader-dialog legend {
+  padding-right: 10px;
+  font-size: 12px;
+  color: #b6bdc8;
+}
+.directory-reader .reader-dialog p {
+  margin: 12px 0 0;
+  font-size: 12px;
+}
+.directory-reader .reader-segments {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.directory-reader .reader-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 52px;
+}
+.directory-reader .reader-setting-row select {
+  min-height: 44px;
+  padding: 8px 12px;
+  background: #272c35;
+  border: 1px solid #434750;
+  border-radius: 8px;
+  color: inherit;
+}
+.directory-reader .reader-setting-row input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  accent-color: #9db9e1;
+}
+.directory-reader .reader-shortcuts summary {
+  cursor: pointer;
+  padding-block: 12px;
+}
+.directory-reader .reader-shortcuts dl {
+  margin: 8px 0 0;
+}
+.directory-reader .reader-shortcuts dl div {
+  display: flex;
+  justify-content: space-between;
+  padding-block: 6px;
+  gap: 12px;
+  font-size: 12px;
+}
+.directory-reader .reader-shortcuts dd {
+  color: #b6bdc8;
+  font-family: monospace;
+}
+.directory-reader .reader-panel-jump {
+  margin-bottom: 20px;
+}
+.directory-reader .reader-thumbnails {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.directory-reader button.reader-thumbnail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px;
+  border-color: transparent;
+  background: #242830;
+}
+.directory-reader .reader-thumbnail img {
+  width: 100%;
+  height: 130px;
+  object-fit: contain;
+  background: #121419;
+  border-radius: 4px;
+}
+.directory-reader .reader-thumbnail span {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  min-width: 24px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #17191ee6;
+  font-variant-numeric: tabular-nums;
+}
+.directory-reader .reader-thumbnail small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+  font-size: 11px;
+}
+.directory-reader .reader-thumbnail[aria-current="page"] {
+  border-color: #9db9e1;
+  background: #334153;
+}
+.directory-reader .reader-thumbnail-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+.directory-reader .reader-single-stage {
+  height: calc(100dvh - 260px);
+}
+.directory-reader.is-immersive .reader-chrome,
+.directory-reader.is-immersive .reader-single-tools,
+.directory-reader.is-immersive .reader-single-name {
+  display: none;
+}
+.directory-reader.is-immersive .reader-single-stage {
+  height: calc(100dvh - 90px);
+}
+.directory-reader.is-immersive .reader-dock {
+  width: auto;
+  left: auto;
+  right: 12px;
+  transform: none;
+  opacity: 0.65;
+}
+.directory-reader.is-immersive .reader-dock:hover,
+.directory-reader.is-immersive .reader-dock:focus-within {
+  opacity: 1;
+}
+.directory-reader button:not(:disabled):hover,
+.directory-reader a:hover {
+  background: #343b47;
+}
+.directory-reader button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.directory-reader :is(button, a, input, select, summary):focus-visible {
+  outline: 2px solid #a8c6ef;
+  outline-offset: 3px;
+}
+@media (max-width: 600px) {
+  .directory-reader .reader-header {
+    padding-inline: 8px;
+  }
+  .directory-reader .reader-dock {
+    gap: 2px;
+    padding: 5px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    border-radius: 12px;
+  }
+  .directory-reader .reader-dock button {
+    padding-inline: 8px;
+  }
+  .directory-reader .reader-dock .reader-page-trigger {
+    min-width: 60px;
+  }
+  .directory-reader .reader-dialog {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+    margin: auto 0 0;
+    padding: 20px 16px max(20px, env(safe-area-inset-bottom));
+    border-radius: 18px 18px 0 0;
+  }
+  .directory-reader .reader-thumbnails {
+    gap: 8px;
+  }
+  .directory-reader .reader-thumbnail img {
+    height: 105px;
+  }
+}

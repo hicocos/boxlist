@@ -26,3 +26,4 @@ render(
   ),
   document.getElementById("root") as HTMLElement,
 )
+document.getElementById("startup-loading")?.remove()

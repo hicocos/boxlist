@@ -7,12 +7,17 @@ import {
   Show,
 } from "solid-js"
 import type { ReaderImage } from "./reader-utils"
+import type { ReaderQuality } from "~/utils/derivative-policy"
+import { readerImageTimeout } from "./reader-loading-policy"
+import { useT } from "~/hooks"
 
 export default function SingleReader(props: {
   items: ReaderImage[]
   index: number
+  quality?: ReaderQuality
   onChange: (index: number) => void
 }) {
+  const t = useT()
   const [zoom, setZoom] = createSignal(false)
   const [playing, setPlaying] = createSignal(false)
   const [state, setState] = createSignal("loading")
@@ -20,6 +25,7 @@ export default function SingleReader(props: {
   const [elapsed, setElapsed] = createSignal(0)
   const [ended, setEnded] = createSignal(false)
   const slideDuration = 4000
+  let savedPosition: { key: string; x: number; y: number } | undefined
   let stage!: HTMLDivElement
   let timer: ReturnType<typeof setInterval> | undefined
   let pointer: { x: number; y: number; id: number } | undefined
@@ -66,14 +72,6 @@ export default function SingleReader(props: {
     clearInterval(timer)
     document.removeEventListener("visibilitychange", visibility)
   })
-  const keydown = (event: KeyboardEvent) => {
-    if (/INPUT|SELECT|TEXTAREA/.test((event.target as HTMLElement).tagName))
-      return
-    if (event.key === "ArrowLeft") move(-1)
-    if (event.key === "ArrowRight") move(1)
-  }
-  document.addEventListener("keydown", keydown)
-  onCleanup(() => document.removeEventListener("keydown", keydown))
   return (
     <section class="reader-single" aria-label="单张阅读">
       <div class="reader-single-tools">
@@ -90,7 +88,7 @@ export default function SingleReader(props: {
           aria-pressed={zoom()}
           onClick={() => setZoom(!zoom())}
         >
-          {zoom() ? "适应屏幕" : "放大原图"}
+          {zoom() ? "适应屏幕" : t("derivatives.zoom")}
         </button>
         <button
           type="button"
@@ -174,7 +172,7 @@ export default function SingleReader(props: {
             move(dx < 0 ? 1 : -1)
         }}
       >
-        <Show keyed when={props.items[props.index]?.key + ":" + retry()}>
+        <Show keyed when={props.items[props.index]?.key + ":" + retry() + ":" + props.quality}>
           {(_key: string) => {
             const image = props.items[props.index]
             // Reset at the keyed image mount, before assigning src. A late
@@ -184,20 +182,32 @@ export default function SingleReader(props: {
               setElapsed(0)
               setEnded(false)
             })
+            const selected = image.media ? image.media.source(props.quality) : { url: image.src, bytes: image.size }
+            const [url, setUrl] = createSignal(selected?.url)
+            const controller = new AbortController()
+            let element!: HTMLImageElement
+            const position = savedPosition?.key === image.key ? savedPosition : { x: 0, y: 0 }
             let active = true
             let timeout: ReturnType<typeof setTimeout> | undefined
             const expire = () => {
+              controller.abort()
+              element?.removeAttribute("src")
               setState("error")
               setPlaying(false)
             }
-            timeout = setTimeout(expire, 45000)
+            timeout = setTimeout(expire, readerImageTimeout(selected?.bytes ?? image.size))
+            if (!selected) expire()
             onCleanup(() => {
+              savedPosition = { key: image.key, x: stage.scrollLeft / Math.max(1, stage.scrollWidth - stage.clientWidth), y: stage.scrollTop / Math.max(1, stage.scrollHeight - stage.clientHeight) }
               active = false
+              controller.abort()
+              element?.removeAttribute("src")
               clearTimeout(timeout)
             })
             return (
               <img
-                src={image.src}
+                ref={element}
+                src={url()}
                 alt={image.name}
                 decoding="async"
                 draggable={false}
@@ -205,11 +215,16 @@ export default function SingleReader(props: {
                   if (!active) return
                   clearTimeout(timeout)
                   setState("ready")
+                  stage.scrollTo(position.x * Math.max(0, stage.scrollWidth - stage.clientWidth), position.y * Math.max(0, stage.scrollHeight - stage.clientHeight))
                 }}
-                onError={() => {
+                onError={async () => {
                   if (!active) return
                   clearTimeout(timeout)
-                  expire()
+                  const next = await image.media?.recover(url() || "", controller.signal)
+                  if (!active) return
+                  if (!next) { setUrl(undefined); expire(); return }
+                  timeout = setTimeout(expire, readerImageTimeout(next.bytes))
+                  setUrl(next.url)
                 }}
                 onDblClick={() => setZoom(!zoom())}
               />
@@ -218,13 +233,13 @@ export default function SingleReader(props: {
         </Show>
         <Show when={state() === "loading"}>
           <span class="reader-status" role="status">
-            正在加载原图…
+            {t("derivatives.loading_image")}
           </span>
         </Show>
       </div>
       <Show when={state() === "error"}>
         <p role="alert">
-          图片加载失败或超时。
+          {props.items[props.index]?.media?.blocked() ? t("derivatives.access_denied") : t("derivatives.image_failed")}
           <button
             type="button"
             onClick={() => {
@@ -234,13 +249,13 @@ export default function SingleReader(props: {
           >
             重试
           </button>
-          <a
-            href={props.items[props.index]?.src}
+          <Show when={!props.items[props.index]?.media?.blocked()}><a
+            href={props.items[props.index]?.original || props.items[props.index]?.src}
             target="_blank"
             rel="noopener noreferrer"
           >
             打开原图
-          </a>
+          </a></Show>
         </p>
       </Show>
       <p class="reader-single-name">

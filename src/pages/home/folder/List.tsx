@@ -24,6 +24,7 @@ import { OrderBy } from "~/store"
 import { Col, cols, ListItem } from "./ListItem"
 import { ItemCheckbox, useSelectWithMouse } from "./helper"
 import { bus } from "~/utils"
+import { markPrimaryReady } from "~/app/primary-ready"
 import { GalleryEntry, ReaderEntry } from "../reader-entry"
 import { uxText } from "~/utils/ux"
 import { parseFileSortState } from "~/utils/file-sort"
@@ -120,7 +121,7 @@ export const ListTitle = (props: {
     </button>
   )
   return (
-    <HStack class="title" w="$full" p="$2">
+    <HStack class="title" w="$full" px="$2" py="0">
       <HStack
         w={{ "@initial": "auto", "@md": "50%" }}
         flex={{ "@initial": "1 1 0", "@md": "initial" }}
@@ -173,6 +174,7 @@ export const ListTitle = (props: {
 }
 
 const ListLayout = () => {
+  onMount(markPrimaryReady)
   const { pathname } = useRouter()
 
   const [initialOrder, setInitialOrder] = createSignal<OrderBy>()

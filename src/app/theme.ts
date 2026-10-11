@@ -7,6 +7,8 @@ const theme: HopeThemeConfig = {
     colors: {
       // background: "$neutral2",
       background: "#f7f8fa",
+      info11: "#0058b8",
+      warning11: "#8a4300",
     },
   },
   components: {

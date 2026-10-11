@@ -5,7 +5,7 @@ import { r } from "~/utils/request"
 import {
   type UploadedIconAsset,
   type IconLibraryCatalog,
-  isKnownIconAssetId,
+  isUploadedIconId,
   parseUploadedIconAsset,
   parseIconLibraryCatalog,
 } from "~/utils/icon-policy"
@@ -53,7 +53,7 @@ export const deleteLibraryIcon = async (
   id: string,
   signal: AbortSignal,
 ): Promise<void> => {
-  if (!isKnownIconAssetId(id)) throw new Error("图标标识无效")
+  if (!isUploadedIconId(id)) throw new Error("图标标识无效")
   const currentAuthorization = r.defaults.headers.common.Authorization
   if (typeof currentAuthorization !== "string" || !currentAuthorization)
     throw new Error("请先登录管理员账户后删除图标。")
@@ -75,11 +75,7 @@ export const deleteLibraryIcon = async (
       if (data?.id !== id || data.removed !== true)
         throw new Error("删除结果待确认，请刷新素材后核对。")
       const catalog = await loadUploadedIcons(signal)
-      if (
-        id.startsWith("upload-")
-          ? catalog.assets.some((item) => item.id === id)
-          : !catalog.hidden_builtins.includes(id)
-      )
+      if (catalog.assets.some((item) => item.id === id))
         throw new Error("删除结果待确认，请刷新素材后核对。")
     })
   } catch (cause) {

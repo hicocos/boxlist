@@ -29,11 +29,7 @@ const readPageIcons = (): IconConfig => {
       return defaultIconConfig()
     }
   }
-  const legacy = (window as Window & { OPENLIST_FOLDER_ICON_STYLE?: string })
-    .OPENLIST_FOLDER_ICON_STYLE
-  return legacy === "smile"
-    ? { version: 1, selections: { folder: "legacy-smile" } }
-    : defaultIconConfig()
+  return defaultIconConfig()
 }
 export const [siteIconConfig, setSiteIconConfig] =
   createSignal<IconConfig>(readPageIcons())

@@ -1,3 +1,4 @@
+import derivatives from "./derivatives.json"
 import br from "./br.json"
 import drivers from "./drivers.json"
 import global from "./global.json"
@@ -15,6 +16,7 @@ import tasks from "./tasks.json"
 import users from "./users.json"
 
 export const dict = {
+  derivatives,
   br,
   drivers,
   global,

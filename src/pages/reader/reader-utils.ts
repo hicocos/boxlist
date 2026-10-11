@@ -1,4 +1,6 @@
 import type { Obj } from "~/types"
+import type { DerivativeMedia } from "~/utils/derivative-policy"
+import type { Derivatives } from "~/types/derivatives"
 
 export const isReaderImage = (obj: Pick<Obj, "name" | "is_dir">) =>
   !obj.is_dir && /\.(jpe?g|jfif|png|gif|webp|svg|avif|bmp|ico)$/i.test(obj.name)
@@ -8,6 +10,10 @@ export interface ReaderImage {
   src: string
   name: string
   size: number
+  original?: string
+  thumb?: string
+  derivatives?: Derivatives
+  media?: DerivativeMedia
 }
 export interface ReadingProgress {
   name: string

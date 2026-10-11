@@ -10,8 +10,8 @@ var (
 	BuiltAt    string = "unknown"
 	GitAuthor  string = "unknown"
 	GitCommit  string = "unknown"
-	Version    string = "dev"
-	WebVersion string = "rolling"
+	Version    string = "v1.0"
+	WebVersion string = "v1.0"
 )
 
 var (

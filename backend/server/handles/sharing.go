@@ -44,6 +44,7 @@ func SharingGet(c *gin.Context, req *FsGetReq) {
 		}
 	}
 	thumb, _ := model.GetThumb(obj)
+	views := sharingDerivativeViews(c, s, path, []model.Obj{obj}, req.Password, true)
 	common.SuccessResp(c, FsGetResp{
 		ObjResp: ObjResp{
 			Name:        obj.GetName(),
@@ -56,6 +57,7 @@ func SharingGet(c *gin.Context, req *FsGetReq) {
 			Sign:        "",
 			Type:        utils.GetFileType(obj.GetName()),
 			Thumb:       thumb,
+			Derivatives: views[obj.GetName()],
 		},
 		RawURL:   url,
 		Readme:   s.Readme,
@@ -80,6 +82,7 @@ func SharingList(c *gin.Context, req *ListReq) {
 	}
 	_ = countAccess(c.ClientIP(), s)
 	total, objs := pagination(objs, &req.PageReq)
+	views := sharingDerivativeViews(c, s, path, objs, req.Password, false)
 	common.SuccessResp(c, FsListResp{
 		Content: utils.MustSliceConvert(objs, func(obj model.Obj) ObjResp {
 			thumb, _ := model.GetThumb(obj)
@@ -93,6 +96,7 @@ func SharingList(c *gin.Context, req *ListReq) {
 				HashInfo:    obj.GetHash().Export(),
 				Sign:        "",
 				Thumb:       thumb,
+				Derivatives: views[obj.GetName()],
 				Type:        utils.GetObjType(obj.GetName(), obj.IsDir()),
 			}
 		}),
