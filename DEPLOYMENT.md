@@ -46,7 +46,7 @@ sudo bash install-boxlist.sh install --install-docker
 | `sudo boxlist configure` | 修改端口、监听地址和站点地址并应用 |
 | `sudo boxlist backup` | 暂停服务后备份应用数据到安装目录的 `backups/`，再恢复运行 |
 | `sudo boxlist restore` | 选择备份恢复，覆盖前自动备份现有数据 |
-| `sudo boxlist docker` | Docker 子菜单：安装、进入容器、启停、日志及访问配置 |
+| `sudo boxlist docker` | Docker 子菜单：安装、进入容器、密码、状态、启停和删除容器 |
 | `sudo boxlist schedule` | 启用、禁用或查看定时更新（需 root 和运行中的 cron 服务） |
 | `sudo boxlist system` / `about` | 系统状态 / 脚本与项目介绍 |
 | `sudo boxlist script-update` | 更新管理脚本 |

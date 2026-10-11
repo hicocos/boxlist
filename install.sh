@@ -62,6 +62,7 @@ non_interactive=false
 port_explicit=false
 bind_explicit=false
 site_explicit=false
+image_explicit=false
 if [[ $# -gt 0 && $1 != -* ]]; then command_name=$1; shift; fi
 while (( $# )); do
     case "$1" in
@@ -73,7 +74,7 @@ while (( $# )); do
                 --port) port=$2; port_explicit=true; install_options=true ;;
                 --bind) bind=$2; bind_explicit=true; install_options=true ;;
                 --site-url) site_url=$2; site_explicit=true; install_options=true ;;
-                --image) image=$2; install_options=true ;;
+                --image) image=$2; image_explicit=true; install_options=true ;;
                 --existing-data) existing_data=$2; install_options=true ;;
                 --confirm-delete) confirm_delete=$2; install_options=true ;;
             esac
@@ -86,7 +87,7 @@ while (( $# )); do
     esac
 done
 case "$command_name" in
-    menu|install|update|start|stop|restart|status|logs|password|configure|backup|restore|docker|schedule|system|about|shell|remove-container|script-update|uninstall) ;;
+    menu|install|update|start|stop|restart|status|docker-status|logs|password|docker-password|configure|backup|restore|docker|schedule|system|about|shell|remove-container|script-update|uninstall) ;;
     *) fail "未知命令 $command_name" ;;
 esac
 [[ $(uname -s) == Linux ]] || fail '仅支持 Linux'
@@ -102,7 +103,8 @@ if [[ -t 1 && -z ${NO_COLOR:-} && ${TERM:-dumb} != dumb ]]; then
     success=$'\033[1;32m'; warning=$'\033[1;33m'
     reset=$'\033[0m'
 fi
-install_args=(--name "$instance" --image "$image")
+install_args=(--name "$instance")
+[[ $image_explicit == false ]] || install_args+=(--image "$image")
 [[ $port_explicit == false ]] || install_args+=(--port "$port")
 [[ $bind_explicit == false ]] || install_args+=(--bind "$bind")
 [[ $site_explicit == false ]] || install_args+=(--site-url "$site_url")
@@ -173,8 +175,10 @@ panel_status() {
         case "$state" in running) state=运行中 ;; exited|created) state=已停止 ;; restarting) state=重启中 ;; esac
         printf '  状态  %s%s%s\n' "$success" "$state" "$reset"
         docker inspect --format '  镜像  {{.Config.Image}}{{range $port, $bindings := .HostConfig.PortBindings}}{{range $bindings}}{{printf "\n  端口  %s:%s" .HostIp .HostPort}}{{end}}{{end}}' "$id"
+        docker inspect --format '  版本  {{index .Config.Labels "org.opencontainers.image.version"}}' "$id"
     fi
     printf '  实例  %s\n' "$name"
+    if [[ -f $install_dir/.installed-at ]]; then printf '  安装时间  %s\n' "$(cat "$install_dir/.installed-at")"; fi
 }
 manage_panel() {
     local choice action had_install
@@ -230,11 +234,11 @@ MENU
 docker_menu() {
     local choice action
     heading 'Docker 管理'
-    printf '1、Docker 安装 BoxList\n2、进入 Docker 容器\n3、Docker 密码管理\n4、查看 Docker 状态\n5、停止 Docker 容器\n6、启动 Docker 容器\n7、重启 Docker 容器\n8、删除容器\n0、返回主菜单\n\n'
+    printf '1、Docker 安装 BoxList\n2、进入 Docker Container\n3、Docker Container密码管理\n4、查看 Docker Container状态\n5、停止 Docker Container\n6、启动 Docker Container\n7、重启 Docker Container\n8、删除 Docker Container\n0、返回主菜单\n\n'
     read -r -p '请输入选项 [0-8]: ' choice || return 0
     case "$choice" in
-        1) action=install ;; 2) action=shell ;; 3) action=password ;;
-        4) action=status ;; 5) action=stop ;; 6) action=start ;;
+        1) action=install ;; 2) action=shell ;; 3) action=docker-password ;;
+        4) action=docker-status ;; 5) action=stop ;; 6) action=start ;;
         7) action=restart ;; 8) action=remove-container ;; 0) return 0 ;;
         *) fail '无效的选项' ;;
     esac
@@ -315,6 +319,18 @@ if [[ $command_name == install ]]; then
         printf '按 Enter 使用默认值；端口和站点地址以后也能在面板修改。\n'
         [[ $port_explicit == true ]] || prompt_port
         [[ $bind_explicit == true ]] || prompt_bind
+        if [[ $image_explicit == false ]]; then
+            printf '请选择要使用的 BoxList Docker 镜像标签：\n1 - latest（默认）\n2 - 手动输入标签\n'
+            read -r -p '请输入选项 [1-2] (默认1): ' tag_choice || exit 0
+            case "$tag_choice" in
+                1|'') ;;
+                2)
+                    read -r -p '请输入已发布的镜像标签: ' tag || exit 0
+                    [[ $tag =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]] || fail '无效镜像标签'
+                    image="ghcr.io/hicocos/boxlist:$tag" ;;
+                *) fail '无效的选项' ;;
+            esac
+        fi
         [[ $site_explicit == true ]] || prompt_site
         printf '\n  实例：%s\n  目录：%s\n  监听：%s:%s\n  镜像：%s\n\n' "$instance" "$install_dir" "$bind" "$port" "$image"
         read -r -p '开始安装？[Y/n]: ' answer || exit 0
@@ -437,6 +453,7 @@ show_initial_credentials() {
     done < <(compose logs --no-color boxlist)
     if [[ -n $password ]]; then
         printf '\n  管理员账号  admin\n  初始密码    %s%s%s\n\n  请保存密码，登录后及时修改。\n' "$success" "$password" "$reset"
+        if [[ $command_name == password || $command_name == docker-password ]]; then printf '  这是日志中的首次密码；修改密码后它不会更新。\n'; fi
     else
         printf '\n  已保留原账号与密码，未进行重置。\n  忘记密码可在管理面板选择“重置管理员密码”。\n'
     fi
@@ -542,7 +559,9 @@ restore_data() {
         [[ $entry != /* && /$entry/ != */../* ]] || fail '备份含有不安全路径'
     done <<< "$archive_listing"
     archive_types=$(tar -tvzf "$path")
+    [[ -n $archive_types ]] || fail '备份不含任何文件，不能恢复'
     while IFS= read -r entry; do [[ $entry == -* || $entry == d* ]] || fail '备份含有链接或特殊文件'; done <<< "$archive_types"
+    [[ $archive_types == -* || $archive_types == *$'\n-'* ]] || fail '备份不含任何普通文件，不能恢复'
     printf '恢复将覆盖当前应用数据；操作前会自动备份当前数据。\n'
     read -r -p '确认恢复？[y/N]: ' answer || return 0
     [[ $answer == y || $answer == Y ]] || return 0
@@ -611,7 +630,10 @@ schedule_update() {
             printf 'SHELL=/bin/sh\nPATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\n%s\n' "$line" > "$cron_tmp"
             install -m 644 "$cron_tmp" "$cron_file"
             rm -f -- "$cron_tmp"; trap - EXIT
-            printf '定时更新已启用\n更新时间：%s（服务器本地时间）\n' "$schedule" ;;
+            printf '定时更新已启用\n更新时间：%s（服务器本地时间）\n' "$schedule"
+            if ! pgrep -x cron >/dev/null && ! pgrep -x crond >/dev/null; then
+                printf '注意：未检测到运行中的 cron 服务，任务需要启动 cron 后才会执行。\n'
+            fi ;;
         2) rm -f -- "$cron_file"; printf '定时更新已禁用\n' ;;
         3) if [[ -f $cron_file ]]; then cat "$cron_file"; else printf '未设置定时更新\n'; fi ;;
         0|'') return 0 ;; *) fail '无效的选项' ;;
@@ -654,24 +676,39 @@ case "$command_name" in
                 printf '已有 /usr/local/bin/boxlist，未覆盖。\n'
             fi
         fi
-        heading '安装完成'
+        date '+%Y-%m-%d %H:%M:%S' > "$install_dir/.installed-at"
+        if [[ $interactive == true ]]; then clear_screen; fi
+        printf '\n┌────────────────────────────────────────────────────┐\n│                 BoxList 安装成功！                 │\n└────────────────────────────────────────────────────┘\n'
+        compose exec -T boxlist /opt/openlist/openlist version
         show_access
         show_initial_credentials
         printf '\n  管理命令  bash %q --dir %q\n' "$install_dir/boxlist.sh" "$install_dir"
         ;;
     update)
         printf '更新将保留数据卷与配置；请确保已完成备份。\n'
+        old_id=$(compose ps -q boxlist)
+        old_image=
+        [[ -z $old_id ]] || old_image=$(docker inspect --format '{{.Image}}' "$old_id")
         compose pull
         compose up -d --no-build
-        ready ;;
+        ready
+        new_id=$(compose ps -q boxlist)
+        new_image=$(docker inspect --format '{{.Image}}' "$new_id")
+        if [[ $old_image == "$new_image" ]]; then printf '当前已是最新镜像，无需更新程序。\n'; else printf 'BoxList 更新完成！\n'; fi
+        compose exec -T boxlist /opt/openlist/openlist version ;;
     start) compose up -d --no-build; ready ;;
-    stop) compose stop ;;
-    restart) compose restart; ready ;;
+    stop) compose stop; printf 'BoxList 已停止\n' ;;
+    restart) compose restart; ready; printf 'BoxList 已重启\n' ;;
     status)
-        heading '服务状态'
-        compose ps -a
-        id=$(compose ps --status running -q boxlist)
-        if [[ -n $id ]]; then docker stats --no-stream --format 'CPU {{.CPUPerc}}  内存 {{.MemUsage}}  网络 {{.NetIO}}' "$id"; fi ;;
+        id=$(compose ps -aq boxlist)
+        if [[ -z $id ]]; then
+            printf 'BoxList 当前状态为：容器未创建，数据与配置保留\n'
+        elif [[ $(docker inspect --format '{{.State.Running}}' "$id") == true ]]; then
+            printf 'BoxList 当前状态为：运行中\n'
+        else
+            printf 'BoxList 当前状态为：停止\n'
+        fi ;;
+    docker-status) heading 'Docker Container状态：'; compose ps -a ;;
     logs) compose logs --tail 100 boxlist ;;
     configure) configure ;;
     backup) backup_data ;;
@@ -684,12 +721,19 @@ case "$command_name" in
         compose down
         printf '容器已删除，应用数据保留。彻底卸载请使用主菜单 3。\n' ;;
     script-update) update_script ;;
-    password)
+    password|docker-password)
         password_args=(random)
         if [[ $interactive == true ]]; then
-            heading '密码管理'
-            printf '1、生成随机密码\n2、设置新密码\n3、查看当前账号信息\n4、从日志中提取初始密码\n5、重置数据库（危险操作）\n0、返回主菜单\n\n'
-            read -r -p '请输入选项 [0-5]: ' choice || exit 0
+            if [[ $command_name == docker-password ]]; then
+                heading 'Docker Container密码管理'
+                printf '1、生成随机密码\n2、设置新密码\n0、返回主菜单\n\n'
+                read -r -p '请输入选项 [0-2]: ' choice || exit 0
+                [[ $choice == 0 || $choice == 1 || $choice == 2 ]] || fail '无效的选项'
+            else
+                heading '密码管理'
+                printf '1、生成随机密码\n2、设置新密码\n3、查看当前账号信息\n4、从日志中提取初始密码\n5、重置数据库（危险操作）\n0、返回主菜单\n\n'
+                read -r -p '请输入选项 [0-5]: ' choice || exit 0
+            fi
             case "$choice" in
                 1) ;;
                 2)
