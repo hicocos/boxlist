@@ -25,6 +25,7 @@ import (
 type DerivativeS3Target struct {
 	ID           uint      `gorm:"primaryKey" json:"-"`
 	IdentityHash string    `gorm:"size:64;uniqueIndex" json:"-"`
+	Provider     string    `gorm:"size:16" json:"-"`
 	Endpoint     string    `gorm:"type:text" json:"-"`
 	Bucket       string    `gorm:"size:63" json:"-"`
 	Region       string    `gorm:"size:64" json:"-"`
@@ -49,6 +50,7 @@ type DerivativeS3Setting struct {
 
 type S3ConfigRequest struct {
 	Enabled   bool   `json:"enabled"`
+	Provider  string `json:"provider,omitempty"`
 	Endpoint  string `json:"endpoint"`
 	Region    string `json:"region"`
 	Bucket    string `json:"bucket"`
@@ -62,6 +64,7 @@ type S3ConfigRequest struct {
 
 type S3ConfigView struct {
 	Enabled             bool   `json:"enabled"`
+	Provider            string `json:"provider"`
 	Endpoint            string `json:"endpoint"`
 	Region              string `json:"region"`
 	Bucket              string `json:"bucket"`
@@ -162,7 +165,7 @@ func (m *Manager) S3Configuration() (S3ConfigView, error) {
 	if err != nil {
 		return S3ConfigView{}, err
 	}
-	view := S3ConfigView{Enabled: s.Enabled, TargetID: s.TargetID}
+	view := S3ConfigView{Enabled: s.Enabled, TargetID: s.TargetID, Provider: "s3"}
 	if s.TargetID != 0 {
 		t, err := m.s3LoadTarget(context.Background(), s.TargetID)
 		if err != nil {
@@ -174,6 +177,9 @@ func (m *Manager) S3Configuration() (S3ConfigView, error) {
 		view.Endpoint, view.Bucket, view.Region, view.Prefix, view.PathStyle = t.Endpoint, t.Bucket, t.Region, t.Prefix, t.PathStyle
 		view.AccessKeyConfigured, view.SecretKeyConfigured = true, true
 		view.CDNURL, view.PublicCDN = t.CDNURL, t.PublicCDN
+		if t.Provider != "" {
+			view.Provider = t.Provider
+		}
 	}
 	var usage struct {
 		ObjectCount int64
@@ -187,7 +193,12 @@ func (m *Manager) S3Configuration() (S3ConfigView, error) {
 }
 
 func s3Identity(t *DerivativeS3Target) string {
-	b, _ := json.Marshal([]any{t.Endpoint, t.Bucket, t.Region, t.Prefix, t.PathStyle})
+	identity := []any{t.Endpoint, t.Bucket, t.Region, t.Prefix, t.PathStyle}
+	// Preserve existing S3 identities and encrypted credential bindings.
+	if t.Provider == "r2" {
+		identity = append(identity, t.Provider)
+	}
+	b, _ := json.Marshal(identity)
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:])
 }

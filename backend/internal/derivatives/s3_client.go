@@ -30,8 +30,15 @@ const s3RequestTimeout = 20 * time.Second
 var s3BucketPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$`)
 var s3RegionPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9-]{0,63}$`)
 var s3ProbeIDPattern = regexp.MustCompile(`^[0-9a-f]{32}\.bin$`)
+var r2EndpointPattern = regexp.MustCompile(`^[a-f0-9]{32}(\.(eu|fedramp))?\.r2\.cloudflarestorage\.com$`)
 
 func normalizeS3Target(r S3ConfigRequest) (*DerivativeS3Target, error) {
+	if r.Provider == "" {
+		r.Provider = "s3"
+	}
+	if r.Provider != "s3" && r.Provider != "r2" {
+		return nil, ErrS3ConfigurationInvalid
+	}
 	if len(r.Endpoint) > 2048 || strings.ContainsAny(r.Endpoint, "\\\x00\r\n\t ") {
 		return nil, ErrS3ConfigurationInvalid
 	}
@@ -42,6 +49,12 @@ func normalizeS3Target(r S3ConfigRequest) (*DerivativeS3Target, error) {
 	host := strings.ToLower(u.Hostname())
 	if host == "" || strings.ContainsAny(host, "%/") || s3MetadataHost(host) {
 		return nil, ErrS3ConfigurationInvalid
+	}
+	if r.Provider == "r2" {
+		if u.Scheme != "https" || u.Port() != "" || !r2EndpointPattern.MatchString(host) {
+			return nil, ErrS3ConfigurationInvalid
+		}
+		r.Region, r.PathStyle = "auto", true
 	}
 	if port := u.Port(); port != "" {
 		p, e := strconv.Atoi(port)
@@ -75,7 +88,7 @@ func normalizeS3Target(r S3ConfigRequest) (*DerivativeS3Target, error) {
 	if err != nil || (r.PublicCDN && cdn == "") {
 		return nil, ErrS3ConfigurationInvalid
 	}
-	return &DerivativeS3Target{Endpoint: u.String(), Bucket: r.Bucket, Region: r.Region, Prefix: prefix, PathStyle: r.PathStyle, CDNURL: cdn, PublicCDN: r.PublicCDN}, nil
+	return &DerivativeS3Target{Provider: r.Provider, Endpoint: u.String(), Bucket: r.Bucket, Region: r.Region, Prefix: prefix, PathStyle: r.PathStyle, CDNURL: cdn, PublicCDN: r.PublicCDN}, nil
 }
 
 func normalizeS3CDN(raw string) (string, error) {
@@ -154,6 +167,42 @@ func (m *Manager) PublicArtifactURL(a Artifact) string {
 		return ""
 	}
 	return s3CDNObjectURL(t, a.ObjectKey)
+}
+
+// SignedArtifactURL requires fresh ticket and source authorization before use.
+// An empty URL selects the proxy path. Signing never contacts R2.
+func (m *Manager) SignedArtifactURL(ctx context.Context, a Artifact, method string) (string, error) {
+	target, err := m.remoteTarget(a)
+	if err != nil {
+		return "", err
+	}
+	if target.Provider != "r2" || target.PublicCDN {
+		return "", nil
+	}
+	client, closeClient, err := m.s3Client(target)
+	if err != nil {
+		return "", err
+	}
+	defer closeClient()
+	if method == http.MethodHead {
+		req, _ := client.HeadObjectRequest(&s3.HeadObjectInput{Bucket: aws.String(target.Bucket), Key: aws.String(a.ObjectKey)})
+		req.SetContext(ctx)
+		address, err := req.Presign(5 * time.Minute)
+		if err != nil {
+			return "", ErrS3ReadFailed
+		}
+		return address, nil
+	}
+	if method != http.MethodGet {
+		return "", ErrS3ReadFailed
+	}
+	req, _ := client.GetObjectRequest(&s3.GetObjectInput{Bucket: aws.String(target.Bucket), Key: aws.String(a.ObjectKey), ResponseCacheControl: aws.String("private, no-store")})
+	req.SetContext(ctx)
+	address, err := req.Presign(5 * time.Minute)
+	if err != nil {
+		return "", ErrS3ReadFailed
+	}
+	return address, nil
 }
 
 func s3CDNProbe(ctx context.Context, target *DerivativeS3Target, key string, expected []byte) error {
@@ -264,7 +313,7 @@ func (m *Manager) s3Client(t *DerivativeS3Target) (*s3.S3, func(), error) {
 	if t == nil {
 		return nil, nil, ErrS3TargetUnavailable
 	}
-	checked, err := normalizeS3Target(S3ConfigRequest{Endpoint: t.Endpoint, Bucket: t.Bucket, Region: t.Region, Prefix: t.Prefix, PathStyle: t.PathStyle})
+	checked, err := normalizeS3Target(S3ConfigRequest{Provider: t.Provider, Endpoint: t.Endpoint, Bucket: t.Bucket, Region: t.Region, Prefix: t.Prefix, PathStyle: t.PathStyle})
 	if err != nil {
 		return nil, nil, err
 	}

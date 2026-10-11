@@ -43,8 +43,20 @@ func DerivativeS3Test(c *gin.Context) {
 }
 
 // Called only after fresh ticket, session, path/share ACL and mount binding
-// checks. Never reveal a bucket URL or move authorization to a public CDN.
+// checks. R2 private targets issue short-lived URLs only after those checks.
 func serveRemoteDerivative(c *gin.Context, a derivatives.Artifact) {
+	address, err := derivatives.Default.SignedArtifactURL(c.Request.Context(), a, c.Request.Method)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadGateway)
+		return
+	}
+	if address != "" {
+		c.Header("Cache-Control", "private, no-store")
+		c.Header("Referrer-Policy", "no-referrer")
+		c.Header("Location", address)
+		c.Status(http.StatusFound)
+		return
+	}
 	reader, err := derivatives.Default.OpenArtifact(c.Request.Context(), a)
 	if err != nil {
 		status := http.StatusBadGateway

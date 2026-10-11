@@ -105,7 +105,7 @@ func (m *Manager) BackupS3Previews(ctx context.Context) (S3PreviewBackup, error)
 			return S3PreviewBackup{}, e
 		}
 		byTarget[t.ID] = t
-		b.Targets = append(b.Targets, S3PreviewBackupTarget{ID: t.ID, Config: S3ConfigRequest{Enabled: true, Endpoint: t.Endpoint, Bucket: t.Bucket, Region: t.Region, Prefix: t.Prefix, PathStyle: t.PathStyle, CDNURL: t.CDNURL, PublicCDN: t.PublicCDN, AccessKey: access, SecretKey: secret}})
+		b.Targets = append(b.Targets, S3PreviewBackupTarget{ID: t.ID, Config: S3ConfigRequest{Enabled: true, Provider: t.Provider, Endpoint: t.Endpoint, Bucket: t.Bucket, Region: t.Region, Prefix: t.Prefix, PathStyle: t.PathStyle, CDNURL: t.CDNURL, PublicCDN: t.PublicCDN, AccessKey: access, SecretKey: secret}})
 	}
 	bySource := map[string]DerivativeSource{}
 	for _, s := range sources {
