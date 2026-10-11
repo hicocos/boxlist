@@ -33,7 +33,7 @@ sudo bash install-boxlist.sh install --install-docker
 
 `--install-docker` 允许在 Docker 不存在时下载并运行 `https://get.docker.com` 官方安装脚本，需要 root 及该脚本支持的发行版。已有 Docker 不会被重装；如果缺少 Compose 插件，需按发行版安装插件后重试。Docker 服务必须可访问，安装网络需要 GitHub、GHCR；脚本不修改防火墙或配置 HTTPS。
 
-默认配置目录 `/opt/boxlist`，容器和项目名 `boxlist`，数据卷 `boxlist_data`。安装后检查容器内公开设置 API 的 HTTP 状态，再报告启动完成。root 安装默认实例时会创建 `/usr/local/bin/boxlist`（不覆盖已有命令），运行 `sudo boxlist` 打开菜单。
+默认配置目录 `/opt/boxlist`，容器和项目名 `boxlist`，数据卷 `boxlist_data`。安装向导可选择端口（默认 5244）、监听地址和站点地址；完成后直接显示初始账号密码，按 Enter 进入管理面板。保留旧数据安装时继续使用原密码。root 安装默认实例时会创建 `/usr/local/bin/boxlist`（不覆盖已有命令），运行 `sudo boxlist` 打开菜单。自动化安装可加 `--non-interactive`，使用参数和默认值并在完成后退出。
 
 | 命令 | 行为 |
 | --- | --- |
@@ -42,10 +42,13 @@ sudo bash install-boxlist.sh install --install-docker
 | `sudo boxlist logs` | 查看最近 100 行日志，首次密码也在其中；不要公开日志 |
 | `sudo boxlist start` | 启动或重新创建容器；应用修改后的 `.env` / override |
 | `sudo boxlist stop` / `restart` | 停止 / 重启服务；restart 不重新加载 Compose 配置 |
-| `sudo boxlist password` | 停服后生成随机管理员密码，完成后恢复此前运行状态 |
-| `sudo boxlist uninstall` | 确认后移除容器和网络，保留数据卷、安装目录和管理命令 |
+| `sudo boxlist password` | 生成随机密码或交互设置新密码，完成后恢复此前运行状态 |
+| `sudo boxlist configure` | 修改端口、监听地址和站点地址并应用 |
+| `sudo boxlist backup` | 暂停服务后备份应用数据到安装目录的 `backups/`，再恢复运行 |
+| `sudo boxlist script-update` | 更新管理脚本 |
+| `sudo boxlist uninstall` | 确认后彻底删除容器、网络、应用数据卷、安装目录及对应管理命令 |
 
-无交互卸载可加 `--yes`，也不会删除数据。重新运行 `start` 可恢复已卸载容器。脚本不接管现有 Compose 实例：容器、项目、同名卷已存在或目标目录非空时拒绝新安装。安装已保存配置但拉取失败时，用相同 `--dir` 执行 `update` 重试；更新拉取失败不会停止旧服务。
+卸载不可恢复，安装目录中的备份也会删除，请先将需要保留的备份移至其他位置。`--yes` 可用于无交互确认彻底卸载；暂时不用请选择 `stop`。外部原文件和远端存储不受影响。残留数据卷可在新安装时选择保留或删除；已有运行实例不会被接管。
 
 自定义安装示例（适合同机反向代理）：
 
@@ -56,7 +59,7 @@ sudo bash /opt/boxlist-second/boxlist.sh status --dir /opt/boxlist-second
 
 非默认实例不创建全局 `boxlist` 命令，使用安装目录中的 `boxlist.sh` 和相同的 `--dir`。非 root 用户已有 Docker 权限时可省略 sudo，选择可写目录。镜像可用 `--image` 指定已发布版本或 digest；这些安装参数仅用于新安装，后续修改安装目录中的 `.env`，执行 `start` 应用配置。不要更改项目名、容器名或数据卷归属。
 
-脚本使用项目专用锁避免同时执行管理操作，始终使用保存的 `.env`，可合并同目录的 `compose.override.yaml`。不会自动更新管理脚本或覆盖本地 Compose 配置，也不启用定时更新。完整备份与恢复按下文执行；没有自动删除数据或恢复覆盖数据库的菜单。
+菜单操作完成后返回面板，失败时显示原因并允许重新选择。完整备份与恢复按下文执行；备份命令不包含外部原文件或 S3 桶对象。
 
 ## 首次启动
 
