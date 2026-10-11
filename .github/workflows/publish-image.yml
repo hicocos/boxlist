@@ -1,0 +1,219 @@
+name: Publish image
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  # GitHub's ref selector chooses the branch or tag to build.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-image-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      image: ${{ steps.metadata.outputs.image }}
+      commit: ${{ steps.metadata.outputs.commit }}
+      version: ${{ steps.metadata.outputs.version }}
+      tags: ${{ steps.metadata.outputs.tags }}
+    steps:
+      - name: Check out selected ref
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Resolve image metadata
+        id: metadata
+        env:
+          REPOSITORY: ${{ github.repository }}
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          image="ghcr.io/${REPOSITORY,,}"
+          commit="$(git rev-parse HEAD)"
+          version="sha-${commit}"
+          tags=("${image}:sha-${commit}")
+          if [[ "$REF" == refs/tags/v* ]]; then
+            version="$REF_NAME"
+            tags+=("${image}:${version}")
+          elif [[ "$REF" == refs/heads/main ]]; then
+            tags+=("${image}:latest")
+          fi
+          {
+            echo "image=$image"
+            echo "commit=$commit"
+            echo "version=$version"
+            echo 'tags<<IMAGE_TAGS'
+            printf '%s\n' "${tags[@]}"
+            echo 'IMAGE_TAGS'
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    env:
+      SMOKE_IMAGE: boxlist-smoke:${{ matrix.arch }}
+    steps:
+      - name: Check out exact source commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and load native image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          load: true
+          tags: ${{ env.SMOKE_IMAGE }}
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.version }}
+            SOURCE_COMMIT=${{ needs.prepare.outputs.commit }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          provenance: false
+          cache-from: type=gha,scope=boxlist-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=boxlist-${{ matrix.arch }}
+
+      - name: Smoke test isolated image
+        timeout-minutes: 5
+        run: |
+          container="boxlist-smoke-${{ matrix.arch }}"
+          smoke_dir="$(mktemp -d)"
+          cleanup() {
+            result=$?
+            trap - EXIT
+            if (( result != 0 )); then
+              docker logs "$container" || true
+            fi
+            docker rm --force --volumes "$container" >/dev/null 2>&1 || true
+            rm -rf "$smoke_dir"
+            exit "$result"
+          }
+          trap cleanup EXIT
+          # A fresh tmpfs replaces the data volume; no existing data is mounted.
+          docker run --detach --name "$container" \
+            --publish 127.0.0.1::5244 \
+            --tmpfs /opt/openlist/data:rw,nosuid,nodev,uid=1001,gid=1001,mode=0750 \
+            "$SMOKE_IMAGE"
+          address="$(docker port "$container" 5244/tcp)"
+          for attempt in {1..30}; do
+            if [[ "$(docker inspect --format '{{.State.Running}}' "$container")" != true ]]; then
+              echo 'Container exited before becoming ready' >&2
+              exit 1
+            fi
+            if [[ "$(curl --silent --max-time 3 --output "$smoke_dir/root.html" \
+                --write-out '%{http_code}' "http://${address}/")" == 200 ]] \
+              && grep -Eiq '<!doctype html|<html' "$smoke_dir/root.html" \
+              && [[ "$(curl --silent --max-time 3 --output "$smoke_dir/settings.json" \
+                --write-out '%{http_code}' "http://${address}/api/public/settings")" == 200 ]] \
+              && jq -e '.code == 200' "$smoke_dir/settings.json" >/dev/null; then
+              echo 'Root HTML and public settings smoke checks passed'
+              exit 0
+            fi
+            sleep 2
+          done
+          echo 'Image did not become ready within 30 attempts' >&2
+          exit 1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Re-export the same cached build only after its smoke test succeeds.
+      - name: Push tested image by digest
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.version }}
+            SOURCE_COMMIT=${{ needs.prepare.outputs.commit }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          provenance: false
+          outputs: type=image,name=${{ needs.prepare.outputs.image }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export image digest
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          printf '%s\n' "$DIGEST" > "$RUNNER_TEMP/digests/${{ matrix.arch }}"
+
+      - name: Upload image digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: image-digest-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/${{ matrix.arch }}
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: [prepare, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Download tested image digests
+        uses: actions/download-artifact@v8
+        with:
+          pattern: image-digest-*
+          path: ${{ runner.temp }}/digests
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish multiarch manifest
+        env:
+          IMAGE: ${{ needs.prepare.outputs.image }}
+          TAGS: ${{ needs.prepare.outputs.tags }}
+        run: |
+          tag_args=()
+          while IFS= read -r tag; do
+            tag_args+=(--tag "$tag")
+          done <<< "$TAGS"
+          images=()
+          for arch in amd64 arm64; do
+            digest="$(cat "$RUNNER_TEMP/digests/$arch")"
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            images+=("${IMAGE}@${digest}")
+          done
+          docker buildx imagetools create "${tag_args[@]}" "${images[@]}"

@@ -1,0 +1,10 @@
+# Opt in: docker compose -f compose.yaml -f compose.build.yaml up -d --build
+services:
+  boxlist:
+    image: boxlist:local
+    pull_policy: never
+    build:
+      context: .
+      args:
+        VERSION: "${BOXLIST_VERSION:-local}"
+        SOURCE_COMMIT: "${SOURCE_COMMIT:-unknown}"

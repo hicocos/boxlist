@@ -1,12 +1,12 @@
 # 部署与运维
 
-本指南对应仓库的 [`compose.yaml`](compose.yaml) 和 [`Dockerfile`](Dockerfile)。不依赖已有实例、预置账号、样本目录或额外本地脚本。
+本指南对应仓库的 [`compose.yaml`](compose.yaml)、可选的 [`compose.build.yaml`](compose.build.yaml) 和 [`Dockerfile`](Dockerfile)。不依赖已有实例、预置账号、样本目录或额外本地脚本。
 
 ## 部署模型与构建要求
 
-推荐使用 Linux 容器及 Docker Compose 插件。镜像在构建时编译本仓库的前端，将产物嵌入 Go 后端，再以单个服务进程运行；不需要独立前端服务器，也不会下载另一套预编译界面。
+推荐使用 Linux 容器及 Docker Compose 插件。默认从 GHCR 拉取提前构建的镜像，支持 AMD64 / ARM64；部署服务器不需要下载源码、安装构建依赖或编译。镜像包含本仓库的前端和 Go 后端，以单个服务进程运行。`latest` 跟随成功发布的 `main` 分支，固定版本可设置 `BOXLIST_IMAGE` 为已发布标签或 digest。
 
-当前构建声明如下，以源文件为准：
+以下是镜像发布或自行源码构建时的配置，普通镜像部署无需执行这些步骤：
 
 | 项目 | 版本或配置来源 |
 | --- | --- |
@@ -25,13 +25,15 @@ Docker 构建不要求宿主机安装 Node、pnpm、Go 或 libvips，但需要�
 ## 首次启动
 
 ```sh
-git clone https://github.com/hicocos/boxlist.git
+mkdir -p boxlist
 cd boxlist
-docker compose up -d --build
+curl -fsSL https://raw.githubusercontent.com/hicocos/boxlist/main/compose.yaml -o compose.yaml
+docker compose pull
+docker compose up -d
 docker compose logs boxlist
 ```
 
-服务名为 `boxlist`，构建所得本地镜像名为 `boxlist:local`。首次创建管理员时密码只输出到控制台，之后数据库保存的是哈希；不要把启动日志作为公开故障报告上传。
+服务名和容器名均为 `boxlist`，默认镜像为 `ghcr.io/hicocos/boxlist:latest`。首次创建管理员时密码只输出到控制台，之后数据库保存的是哈希；不要把启动日志作为公开故障报告上传。
 
 访问服务器的 5244 端口，登录后修改密码、添加存储并检查访客/用户权限。若丢失密码，可停止服务后通过同一数据卷运行密码重置命令，避免另起一个服务进程：
 
@@ -52,6 +54,7 @@ Compose 从项目根目录 `.env` 或命令行环境读取：
 | `SITE_URL` | 空字符串 | 实际对外访问的完整站点地址；反向代理场景使用实际 HTTPS 地址 |
 | `BIND_ADDRESS` | `0.0.0.0` | 宿主端口绑定的接口 |
 | `PORT` | `5244` | 宿主端口，转发到容器内 `5244` |
+| `BOXLIST_IMAGE` | `ghcr.io/hicocos/boxlist:latest` | 可指定已发布版本标签、`sha-完整提交SHA` 或 `ghcr.io/hicocos/boxlist@sha256:…` |
 
 例如，仅供同机反向代理访问：
 
@@ -125,17 +128,48 @@ services:
 
 ## 更新与回退
 
-更新前记录当前源码版本、镜像和卷映射，完成一致性备份，再执行：
+更新前记录当前镜像 digest 和卷映射，完成一致性备份，再执行：
 
 ```sh
-git pull --ff-only
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 docker compose logs --tail 100 boxlist
 ```
 
-源码更新必须重新构建，不能仅拉取或重启本地镜像。不要用 `docker compose down -v` 更新；不要随意更换 Compose 项目名或数据卷。源码有本地改动时，先处理合并问题，不要强制覆盖配置。
+镜像部署不需要 `git pull` 或 `--build`。如果固定了版本标签或 digest，先修改 `.env` 中的 `BOXLIST_IMAGE`。不要用 `docker compose down -v` 更新；不要随意更换 Compose 项目名或数据卷。
 
-回退应使用自己保留的旧镜像或源码版本，并先在数据副本上确认兼容性。旧程序不一定理解新增数据库字段或 S3 预览图；也不要为了回退直接覆盖数据库而丢失更新后的用户、设置和任务记录。
+回退时将 `BOXLIST_IMAGE` 设置为先前记录的镜像 digest，再执行上述命令；先在数据副本上确认兼容性。旧程序不一定理解新增数据库字段或 S3 预览图；也不要为了回退直接覆盖数据库而丢失更新后的用户、设置和任务记录。
+
+### 从源码部署迁移
+
+在原项目目录执行 `git pull --ff-only` 获取新的 Compose 配置，再执行 `docker compose pull` 和 `docker compose up -d`。有本地改动时先处理合并，不要强制覆盖。默认项目名仍为 `boxlist`，卷仍为 `boxlist_data`，挂载点仍为 `/opt/openlist/data`，UID/GID 仍为 1001:1001。
+
+容器名由 Compose 自动生成的 `boxlist-boxlist-1` 改为 `boxlist`；同一项目内 `up -d` 会重建该服务并保留数据卷。不要手动新建另一个项目或空卷。如已有其他项目占用容器名 `boxlist`，先确认归属并在本地 override 中选择其他名称；显式容器名意味着单台 Docker 主机上多实例需使用不同名称。
+
+使用自定义 `compose.deploy.yaml` 等文件的实例，需在原文件中将 `image` 改为 GHCR 镜像、移除 `build` 并设置 `container_name: boxlist`；保留原有挂载、环境、端口和资源限制，继续使用原来的 `-f` 参数及项目名。不要直接替换成默认配置，否则绑定目录可能变成空命名卷。
+
+### 自行源码构建
+
+```sh
+git clone https://github.com/hicocos/boxlist.git
+cd boxlist
+docker compose -f compose.yaml -f compose.build.yaml up -d --build
+```
+
+构建覆盖文件使用 `boxlist:local`，禁止拉取同名远端镜像。可以设置 `BOXLIST_VERSION` 和 `SOURCE_COMMIT` 作为构建版本信息。更新源码后重新执行相同构建命令；后续日志、停止、管理员命令等操作也使用同样的两个 `-f` 参数。不要只运行默认 `docker compose up`，否则会切换回 GHCR 镜像。
+
+### 镜像发布
+
+[`publish-image.yml`](.github/workflows/publish-image.yml) 在推送 `main`、推送 `v*` 标签或手动运行时构建镜像。两个原生 GitHub runner 分别构建 AMD64 和 ARM64，使用按架构隔离的 BuildKit 缓存，启动临时容器检查首页和公开设置 API；两种架构均通过后才发布多架构标签。
+
+- `main` 发布 `latest` 和 `sha-完整提交SHA`。
+- `v*` 标签发布同名镜像标签及提交标签，不覆盖 `latest`；手动运行根据所选分支/标签遵循同样规则。
+- 工作流使用仓库的 `GITHUB_TOKEN`，需要 Actions 可运行且允许 `packages: write`，无需另存个人令牌。
+- GHCR 新建包可能默认为私有。首次发布后，在 GitHub 的 `Packages → boxlist → Package settings` 中将可见性设为 Public，才能让普通用户免登录拉取。公开源码仓库不自动保证容器包公开。
+- 首次发布完成并确认匿名拉取成功后再使用镜像部署；若提示 `denied`，检查包可见性与访问权限；若提示 `manifest unknown`，检查工作流是否成功及标签是否存在。源码构建可在发布前使用。
+- Fork 会发布到自己的小写仓库路径，部署时需通过 `BOXLIST_IMAGE` 指向自己的包。
+
+发布状态见 [Actions](https://github.com/hicocos/boxlist/actions/workflows/publish-image.yml)，可用标签见 [Packages](https://github.com/hicocos/boxlist/pkgs/container/boxlist)。
 
 ## 备份与恢复
 

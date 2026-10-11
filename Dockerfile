@@ -11,7 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY patches/ ./patches/
 RUN pnpm install --frozen-lockfile
-COPY . .
+COPY index.html tsconfig.json vite.config.ts ./
+COPY src/ ./src/
+COPY public/ ./public/
 RUN VITE_API_URL=/ pnpm run build
 
 FROM ${GO_IMAGE} AS backend

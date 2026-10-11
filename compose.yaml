@@ -1,11 +1,8 @@
 name: boxlist
 services:
   boxlist:
-    image: boxlist:local
-    build:
-      context: .
-      args:
-        VERSION: v1.0
+    container_name: boxlist
+    image: "${BOXLIST_IMAGE:-ghcr.io/hicocos/boxlist:latest}"
     restart: unless-stopped
     environment:
       SITE_URL: "${SITE_URL:-}"

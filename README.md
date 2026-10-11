@@ -1,6 +1,6 @@
 # boxlist v1.0
 
-基于 [OpenList](https://github.com/OpenListTeam/OpenList) 的多存储文件列表程序，提供文件管理、在线预览、图片阅读和界面自定义。前端与 Go 后端从本仓库一起构建，部署为一个容器。
+基于 [OpenList](https://github.com/OpenListTeam/OpenList) 的多存储文件列表程序，提供文件管理、在线预览、图片阅读和界面自定义。前端与 Go 后端由 GitHub Actions 提前构建为镜像，部署时直接下载并启动一个容器，无需在服务器上编译。
 
 [部署指南](DEPLOYMENT.md) · [预览图使用说明](doc/thumb-operations.md) · [问题反馈](https://github.com/hicocos/boxlist/issues)
 
@@ -15,15 +15,19 @@
 
 ## 安装
 
-需要 Git、Docker Engine 和 Docker Compose 插件；构建需要访问镜像仓库和依赖源。
+需要 Docker Engine 和 Docker Compose 插件，以及访问 GHCR（`ghcr.io`）的网络。镜像支持 Linux AMD64 / ARM64，Docker 会自动选择对应架构。
 
 ```sh
-git clone https://github.com/hicocos/boxlist.git
+mkdir -p boxlist
 cd boxlist
-docker compose up -d --build
+curl -fsSL https://raw.githubusercontent.com/hicocos/boxlist/main/compose.yaml -o compose.yaml
+docker compose pull
+docker compose up -d
 ```
 
 访问服务器的 **5244** 端口。默认映射到全部网络接口；正式对外开放前请配置 HTTPS、修改管理员密码并检查访客权限。
+
+默认容器名为 `boxlist`，镜像为 `ghcr.io/hicocos/boxlist:latest`。`latest` 跟随通过构建和启动验证的 `main` 分支；需要固定版本时，在 `.env` 中设置 `BOXLIST_IMAGE=ghcr.io/hicocos/boxlist:sha-完整提交SHA`，或使用已经发布的版本标签。可用镜像见 [GitHub Packages](https://github.com/hicocos/boxlist/pkgs/container/boxlist)。
 
 首次启动的管理员密码输出到容器日志：
 
@@ -42,6 +46,7 @@ docker compose logs boxlist
 | `SITE_URL` | 空 | 站点对外访问的完整地址；使用反向代理时设置为实际 HTTPS 地址 |
 | `BIND_ADDRESS` | `0.0.0.0` | 宿主机端口绑定地址；同机反向代理建议 `127.0.0.1` |
 | `PORT` | `5244` | 宿主机端口；容器内部仍为 `5244` |
+| `BOXLIST_IMAGE` | `ghcr.io/hicocos/boxlist:latest` | 镜像地址，可指定已发布标签或 digest |
 
 修改后运行 `docker compose up -d` 使容器配置生效。其他应用环境变量需要在 Compose 的 `environment` 中显式传入，不能仅写入 `.env`。
 
@@ -49,17 +54,31 @@ docker compose logs boxlist
 
 ## 更新与数据安全
 
-先备份应用数据、挂载的原文件及外部服务数据，再更新源码并重建：
+先备份应用数据、挂载的原文件及外部服务数据，再拉取镜像并重新创建容器：
 
 ```sh
-git pull --ff-only
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
 - 默认使用命名卷 `data`，挂载到 `/opt/openlist/data`；重建容器不等于重建数据。
 - **不要用 `docker compose down -v` 更新**：它会删除命名卷。更换 Compose 项目名或卷映射也可能让应用连接到空卷。
 - 数据库、配置、图标和本地预览图应一起备份；启用 S3 预览图时还要保留加密密钥及桶对象。
 - 网页导出的配置/索引备份不等于完整数据备份，也不包含原文件。具体范围见 [备份与恢复](DEPLOYMENT.md#备份与恢复)。
+
+已有源码部署迁移时，在原项目目录运行 `git pull --ff-only`，保留原项目名、数据卷和本地配置，再执行上面的两条命令。Compose 会把自动生成的容器名更新为 `boxlist`；默认数据卷仍是 `boxlist_data`。如使用了自定义部署文件，应同步改为镜像部署，详见[部署指南](DEPLOYMENT.md#从源码部署迁移)。
+
+## 从源码构建
+
+只有修改源码或需要自行构建时才使用此方式，需要 Git 和构建依赖源网络。首次编译仍会消耗较多时间和内存：
+
+```sh
+git clone https://github.com/hicocos/boxlist.git
+cd boxlist
+docker compose -f compose.yaml -f compose.build.yaml up -d --build
+```
+
+后续源码更新、管理员命令和其他 Compose 操作也应使用同样的两个 `-f` 参数，避免切回预构建镜像。构建与发布流程见[部署指南](DEPLOYMENT.md#镜像发布)。
 
 ## 使用边界
 
