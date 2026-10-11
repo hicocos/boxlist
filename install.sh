@@ -16,6 +16,8 @@ usage() {
   --site-url URL      新安装的对外 HTTPS 地址
   --image IMAGE      新安装的镜像（默认 ghcr.io/hicocos/boxlist:latest）
   --install-docker    缺少 Docker 时允许运行 Docker 官方安装脚本
+  --existing-data MODE  残留数据卷处理：reuse 保留 / reset 删除重装
+  --confirm-delete NAME 非交互删除确认，必须填写完整数据卷名
   --yes               确认卸载容器；始终保留数据卷和安装目录
   --help              显示帮助
 更新前请备份。修改安装目录中的 .env 可调整镜像、端口和站点地址。
@@ -32,10 +34,14 @@ image=ghcr.io/hicocos/boxlist:latest
 install_docker=false
 yes=false
 install_options=false
+existing_data=
+confirm_delete=
+reuse_volume=false
+reset_volume=false
 if [[ $# -gt 0 && $1 != -* ]]; then command_name=$1; shift; fi
 while (( $# )); do
     case "$1" in
-        --dir|--name|--port|--bind|--site-url|--image)
+        --dir|--name|--port|--bind|--site-url|--image|--existing-data|--confirm-delete)
             (( $# >= 2 )) || fail "$1 缺少参数"
             case "$1" in
                 --dir) install_dir=$2 ;;
@@ -44,6 +50,8 @@ while (( $# )); do
                 --bind) bind=$2; install_options=true ;;
                 --site-url) site_url=$2; install_options=true ;;
                 --image) image=$2; install_options=true ;;
+                --existing-data) existing_data=$2; install_options=true ;;
+                --confirm-delete) confirm_delete=$2; install_options=true ;;
             esac
             shift 2 ;;
         --install-docker) install_docker=true; shift ;;
@@ -80,6 +88,8 @@ MENU
     esac
 fi
 [[ $command_name == install || $install_options == false ]] || fail '名称、端口、镜像等参数仅用于新安装；已有实例请修改 .env'
+[[ -z $existing_data || $existing_data == reuse || $existing_data == reset ]] || fail '--existing-data 只能是 reuse 或 reset'
+[[ -z $confirm_delete || $existing_data == reset ]] || fail '--confirm-delete 必须与 --existing-data reset 一起使用'
 
 command -v curl >/dev/null || fail '请先安装 curl'
 command -v flock >/dev/null || fail '请先安装 util-linux（flock）'
@@ -107,6 +117,12 @@ case $(docker info --format '{{.OSType}}/{{.Architecture}}') in
     *) fail '镜像仅支持 Linux AMD64 / ARM64 Docker 主机' ;;
 esac
 
+check_volume_unused() {
+    local users
+    users=$(docker ps -a --filter "volume=${instance}_data" --format '{{.Names}}')
+    [[ -z $users ]] || fail "数据卷 ${instance}_data 仍被容器引用（包括已停止容器）：$users；请先处理原实例"
+}
+
 marker="$install_dir/.boxlist-managed"
 if [[ $command_name == install ]]; then
     [[ ! -e $marker ]] || fail "此目录已经安装；使用 update 或 start：$install_dir"
@@ -125,15 +141,39 @@ if [[ $command_name == install ]]; then
         fail "容器 $instance 已存在；不会接管或覆盖已有实例"
     fi
     [[ -z $(docker ps -aq --filter "label=com.docker.compose.project=$instance") ]] || fail "Compose 项目 $instance 已存在"
-    if docker volume inspect "${instance}_data" >/dev/null 2>&1; then
-        fail "数据卷 ${instance}_data 已存在；请使用原安装目录，或选择其他 --name"
-    fi
     if [[ -d $install_dir ]]; then
         shopt -s nullglob dotglob
         entries=("$install_dir"/*)
         (( ${#entries[@]} == 0 )) || fail "安装目录非空，不会覆盖：$install_dir"
         shopt -u nullglob dotglob
     fi
+    if docker volume inspect "${instance}_data" >/dev/null 2>&1; then
+        check_volume_unused
+        printf '检测到残留数据卷：%s\n' "${instance}_data"
+        if [[ -z $existing_data ]]; then
+            [[ -t 0 ]] || fail '请指定 --existing-data reuse 保留数据，或 --existing-data reset --confirm-delete 完整数据卷名 删除重装'
+            printf '1) 保留数据重新安装（保留账号、设置和预览图）\n2) 删除数据全新安装（不可恢复）\n0) 取消（默认）\n'
+            read -r -p '请选择 [0-2]: ' data_choice || exit 0
+            case "$data_choice" in
+                1) existing_data=reuse ;;
+                2) existing_data=reset ;;
+                0|'') printf '已取消，数据未修改。\n'; exit 0 ;;
+                *) fail '无效选择，数据未修改' ;;
+            esac
+        fi
+        if [[ $existing_data == reset ]]; then
+            printf '将删除 %s 中的全部账号、配置、数据库和本地预览图。\n' "${instance}_data"
+            if [[ -z $confirm_delete && -t 0 ]]; then
+                read -r -p "请输入完整数据卷名 ${instance}_data 确认删除：" confirm_delete || exit 1
+            fi
+            [[ $confirm_delete == "${instance}_data" ]] || fail '删除确认不匹配，数据未修改（--yes 不代替此确认）'
+            reset_volume=true
+        else
+            reuse_volume=true
+        fi
+    fi
+    # Fetch before changing local files or deleting any residual data.
+    docker pull "$image"
     mkdir -p -- "$install_dir"
 else
     [[ -f $marker && -f $install_dir/compose.yaml && -f $install_dir/.env ]] || fail "未找到脚本管理的安装：$install_dir"
@@ -147,6 +187,7 @@ compose() {
     # Persisted .env wins over unrelated caller environment variables.
     local files=(-f "$install_dir/compose.yaml")
     if [[ -f $install_dir/compose.override.yaml ]]; then files+=(-f "$install_dir/compose.override.yaml"); fi
+    if [[ -f $install_dir/compose.volume.yaml ]]; then files+=(-f "$install_dir/compose.volume.yaml"); fi
     env -u BOXLIST_IMAGE -u BOXLIST_CONTAINER_NAME -u PORT -u BIND_ADDRESS -u SITE_URL \
         docker compose --project-directory "$install_dir" --env-file "$install_dir/.env" \
         --project-name "$instance" "${files[@]}" "$@"
@@ -194,11 +235,21 @@ case "$command_name" in
         mv -- "$install_dir/compose.yaml.tmp" "$install_dir/compose.yaml"
         printf "BOXLIST_CONTAINER_NAME='%s'\nBOXLIST_IMAGE='%s'\nPORT='%s'\nBIND_ADDRESS='%s'\nSITE_URL='%s'\n" \
             "$instance" "$image" "$port" "$bind" "$site_url" > "$install_dir/.env"
+        if [[ $reuse_volume == true ]]; then
+            # External volumes retain their original ownership labels.
+            printf 'volumes:\n  data:\n    external: true\n    name: %s_data\n' "$instance" > "$install_dir/compose.volume.yaml"
+        fi
         compose config -q
         cp -- "$script_path" "$install_dir/boxlist.sh"
         chmod 700 "$install_dir/boxlist.sh"
+        if [[ $reset_volume == true ]]; then
+            check_volume_unused
+            docker volume rm "${instance}_data"
+        elif [[ $reuse_volume == true ]]; then
+            check_volume_unused
+            docker volume inspect "${instance}_data" >/dev/null
+        fi
         printf '%s\n' "$instance" > "$marker"
-        compose pull
         compose up -d --no-build
         ready
         if [[ $EUID == 0 && $instance == boxlist ]]; then
