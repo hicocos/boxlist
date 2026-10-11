@@ -1,5 +1,23 @@
 #!/usr/bin/env bash
-# Boxlist Docker installer and manager. SPDX-License-Identifier: MIT
+# BoxList Docker installer and manager. SPDX-License-Identifier: MIT
+# Menu layout adapted from OpenList-Resource/script/v4.sh (MIT),
+# by ILoveScratch and the OpenList Dev Team.
+# Copyright (c) 2025 The OpenList Projects Contributors
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 set -Eeuo pipefail
 
 fail() { printf '错误：%s\n' "$*" >&2; exit 1; }
@@ -7,7 +25,8 @@ usage() {
     cat <<'HELP'
 用法：bash install.sh [命令] [选项]
 不带命令显示管理菜单。
-命令：install update start stop restart status logs password configure backup script-update uninstall
+命令：install update uninstall status password start stop restart backup restore
+      docker schedule system about logs configure script-update
 选项：
   --dir PATH          安装目录（默认 /opt/boxlist）
   --name NAME         新安装的项目及容器名（默认 boxlist）
@@ -67,7 +86,7 @@ while (( $# )); do
     esac
 done
 case "$command_name" in
-    menu|install|update|start|stop|restart|status|logs|password|configure|backup|script-update|uninstall) ;;
+    menu|install|update|start|stop|restart|status|logs|password|configure|backup|restore|docker|schedule|system|about|shell|remove-container|script-update|uninstall) ;;
     *) fail "未知命令 $command_name" ;;
 esac
 [[ $(uname -s) == Linux ]] || fail '仅支持 Linux'
@@ -78,13 +97,13 @@ script_path=$(realpath -- "${BASH_SOURCE[0]}")
 
 interactive=false
 if [[ -t 0 && $non_interactive == false ]]; then interactive=true; fi
-accent='' success='' warning='' reset=''
+success='' warning='' reset=''
 if [[ -t 1 && -z ${NO_COLOR:-} && ${TERM:-dumb} != dumb ]]; then
-    accent=$'\033[1;36m'; success=$'\033[1;32m'; warning=$'\033[1;33m'
+    success=$'\033[1;32m'; warning=$'\033[1;33m'
     reset=$'\033[0m'
 fi
-heading() { printf '\n%s  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n  %s%s%s\n%s  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━%s\n' "$accent" "$reset" "$accent" "$1" "$reset" "$accent" "$reset"; }
-pause_panel() { read -r -p '按 Enter 返回管理面板…' _ || return 1; }
+heading() { printf '\n%s%s%s\n\n' "$success" "$1" "$reset"; }
+pause_panel() { read -r -s -n1 -p '按任意键继续 ... ' _ || return 1; printf '\n'; }
 valid_port() { [[ $1 =~ ^[1-9][0-9]{0,4}$ ]] && (( $1 <= 65535 )); }
 valid_bind() {
     local octet
@@ -149,18 +168,41 @@ manage_panel() {
     local choice action
     local -a args
     while true; do
-        heading 'BOXLIST  /  管理面板'
-        panel_status
-        printf '  目录  %s\n' "$install_dir"
-        printf '\n  %s安装与更新%s\n    1  安装 / 恢复运行       2  更新 Boxlist\n  %s服务管理%s\n    3  详细状态              4  查看日志\n    5  启动                  6  停止\n    7  重启\n  %s账号与配置%s\n    8  重置管理员密码        9  修改端口 / 站点\n   10  备份应用数据\n  %s维护%s\n   11  更新管理脚本         12  彻底卸载\n    0  退出\n\n' "$accent" "$reset" "$accent" "$reset" "$accent" "$reset" "$accent" "$reset"
-        read -r -p '选择操作 [0-12]: ' choice || return 0
+        printf '\n欢迎使用 BoxList 管理脚本 \n\n%s' "$success"
+        cat <<'MENU'
+基础功能：
+1、安装 BoxList
+2、更新 BoxList
+3、卸载 BoxList
+-------------------
+服务管理：
+4、查看状态
+5、密码管理
+6、启动 BoxList
+7、停止 BoxList
+8、重启 BoxList
+-------------------
+配置管理：
+9、备份配置
+10、恢复配置
+-------------------
+高级选项：
+11、Docker 管理
+12、定时更新
+13、系统状态
+14、关于
+-------------------
+0、退出脚本
+MENU
+        printf '%s\n' "$reset"
+        read -r -p '请输入选项 [0-14]: ' choice || return 0
         case "$choice" in
-            1) if [[ -f $install_dir/.boxlist-managed ]]; then action=start; else action=install; fi ;;
-            2) action=update ;; 3) action=status ;; 4) action=logs ;;
-            5) action=start ;; 6) action=stop ;; 7) action=restart ;;
-            8) action=password ;; 9) action=configure ;; 10) action=backup ;;
-            11) action=script-update ;; 12) action=uninstall ;; 0) return 0 ;;
-            *) printf '%s请选择 0–12。%s\n' "$warning" "$reset"; continue ;;
+            1) action=install ;; 2) action=update ;; 3) action=uninstall ;;
+            4) action=status ;; 5) action=password ;; 6) action=start ;;
+            7) action=stop ;; 8) action=restart ;; 9) action=backup ;;
+            10) action=restore ;; 11) action=docker ;; 12) action=schedule ;;
+            13) action=system ;; 14) action=about ;; 0) return 0 ;;
+            *) printf '%s无效的选项%s\n' "$warning" "$reset"; pause_panel || return 0; continue ;;
         esac
         args=("$action" --dir "$install_dir")
         if [[ $action == install ]]; then
@@ -184,6 +226,35 @@ manage_panel() {
         fi
     done
 }
+docker_menu() {
+    local choice action
+    heading 'Docker 管理'
+    printf '1、Docker 安装 BoxList\n2、进入 Docker 容器\n3、Docker 密码管理\n4、查看 Docker 状态\n5、停止 Docker 容器\n6、启动 Docker 容器\n7、重启 Docker 容器\n8、删除容器\n9、查看日志\n10、修改端口 / 站点\n11、更新管理脚本\n0、返回主菜单\n\n'
+    read -r -p '请输入选项 [0-11]: ' choice || return 0
+    case "$choice" in
+        1) action=install ;; 2) action=shell ;; 3) action=password ;;
+        4) action=status ;; 5) action=stop ;; 6) action=start ;;
+        7) action=restart ;; 8) action=remove-container ;; 9) action=logs ;;
+        10) action=configure ;; 11) action=script-update ;; 0) return 0 ;;
+        *) fail '无效的选项' ;;
+    esac
+    BOXLIST_MENU_CHILD=1 bash "$script_path" "$action" --dir "$install_dir"
+}
+show_about() {
+    printf '\n┌────────────────────────────────────────────────────┐\n│               BoxList Manage Script                │\n├────────────────────────────────────────────────────┤\n│  基于 OpenList 管理脚本交互适配                      │\n│  项目：https://github.com/hicocos/boxlist             │\n│  上游：OpenList Dev Team / ILoveScratch              │\n│  脚本许可证：MIT                                   │\n│  支持平台：Linux AMD64 / ARM64                     │\n└────────────────────────────────────────────────────┘\n\n感谢使用 BoxList 管理脚本！\n'
+}
+if [[ $command_name == about ]]; then show_about; exit 0; fi
+if [[ $command_name == system ]]; then
+    heading '系统状态检查'
+    panel_status
+    printf '\n磁盘空间：\n'; df -h /
+    printf '\n内存使用：\n'; free -h
+    printf '\n系统信息：\n'; uname -srmo
+    exit 0
+fi
+if [[ $command_name == docker ]]; then docker_menu; exit 0; fi
+# The documented one-click command opens the same menu as a bare invocation.
+if [[ $command_name == install && $interactive == true && ${BOXLIST_MENU_CHILD:-0} != 1 ]]; then command_name=menu; fi
 if [[ $command_name == menu ]]; then
     [[ $interactive == true ]] || fail '管理面板需要交互终端；自动化请指定具体命令'
     manage_panel
@@ -228,15 +299,10 @@ check_volume_unused() {
 marker="$install_dir/.boxlist-managed"
 if [[ $command_name == install ]]; then
     if [[ -e $marker ]]; then
-        if [[ $interactive == true && ${BOXLIST_MENU_CHILD:-0} != 1 ]]; then
-            printf '检测到已有安装，进入管理面板。\n'
-            manage_panel
-            exit 0
-        fi
         fail "此目录已经安装；使用 update 或 start：$install_dir"
     fi
     if [[ $interactive == true ]]; then
-        heading '安装 Boxlist'
+        heading '安装 BoxList'
         printf '按 Enter 使用默认值；端口和站点地址以后也能在面板修改。\n'
         [[ $port_explicit == true ]] || prompt_port
         [[ $bind_explicit == true ]] || prompt_bind
@@ -320,7 +386,7 @@ check_owner() {
 ready() {
     local id attempt
     id=$(compose ps -q boxlist)
-    [[ -n $id ]] || fail '未找到运行中的 Boxlist 容器'
+    [[ -n $id ]] || fail '未找到运行中的 BoxList 容器'
     # Probe inside the container; no dependency on host port/firewall/context.
     for (( attempt=0; attempt<30; attempt++ )); do
         # The inner shell expands status after reading the HTTP response.
@@ -331,7 +397,7 @@ ready() {
             IFS= read -r status <&3
             [[ $status == *" 200 "* ]]
         ' >/dev/null 2>&1; then
-            printf 'Boxlist 已启动；端口映射：\n'
+            printf 'BoxList 已启动；端口映射：\n'
             compose port boxlist 5244
             return
         fi
@@ -442,6 +508,106 @@ update_script() {
     trap - EXIT
     printf '管理脚本已更新。\n'
 }
+restore_data() {
+    [[ $interactive == true ]] || fail '恢复配置需要交互终端'
+    local choice path entry
+    local -a backups
+    heading '配置恢复'
+    shopt -s nullglob
+    backups=("$install_dir"/backups/*.tar.gz)
+    shopt -u nullglob
+    for (( choice=0; choice<${#backups[@]}; choice++ )); do printf '%d、%s\n' "$((choice+1))" "${backups[$choice]##*/}"; done
+    printf 'x、自定义输入备份路径\n0、返回主菜单\n'
+    read -r -p '请选择备份: ' choice || return 0
+    case "$choice" in
+        0|'') return 0 ;;
+        x|X) read -r -p '请输入备份文件路径: ' path || return 0 ;;
+        *) [[ $choice =~ ^[1-9][0-9]*$ && ${#choice} -lt 6 ]] || fail '无效选择'
+           (( choice <= ${#backups[@]} )) || fail '无效选择'
+           path=${backups[$((choice-1))]} ;;
+    esac
+    [[ -f $path ]] || fail '备份文件不存在'
+    # Accept only regular files and directories from our data-only archives.
+    archive_listing=$(tar -tzf "$path")
+    while IFS= read -r entry; do
+        [[ $entry != /* && /$entry/ != */../* ]] || fail '备份含有不安全路径'
+    done <<< "$archive_listing"
+    archive_types=$(tar -tvzf "$path")
+    while IFS= read -r entry; do [[ $entry == -* || $entry == d* ]] || fail '备份含有链接或特殊文件'; done <<< "$archive_types"
+    printf '恢复将覆盖当前应用数据；操作前会自动备份当前数据。\n'
+    read -r -p '确认恢复？[y/N]: ' answer || return 0
+    [[ $answer == y || $answer == Y ]] || return 0
+    backup_data
+    restore_backup=$destination
+    restore_running=$(compose ps --status running -q boxlist)
+    recover_restore() {
+        local result=$?
+        trap - EXIT
+        if (( result != 0 )); then
+            printf '恢复失败，正在恢复操作前的数据。\n' >&2
+            compose run --rm --no-deps -T --user 0 --entrypoint sh boxlist -c 'find /opt/openlist/data -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +; tar -xzf - -C /opt/openlist/data' < "$restore_backup" || true
+        fi
+        [[ -z $restore_running ]] || compose start boxlist
+        exit "$result"
+    }
+    trap recover_restore EXIT
+    compose stop boxlist
+    compose run --rm --no-deps -T --user 0 --entrypoint sh boxlist -ec 'find /opt/openlist/data -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +; tar -xzf - -C /opt/openlist/data' < "$path"
+    [[ -z $restore_running ]] || compose start boxlist
+    trap - EXIT
+    printf '恢复成功。操作前备份：%s\n' "$restore_backup"
+}
+valid_schedule() {
+    local value segment base step low high index=0
+    local -a fields parts limits=(59 23 31 12 7) minimum=(0 0 1 1 0)
+    read -r -a fields <<< "$1"
+    (( ${#fields[@]} == 5 )) || return 1
+    for value in "${fields[@]}"; do
+        [[ $value != ,* && $value != *, && $value != *,,* ]] || return 1
+        IFS=, read -r -a parts <<< "$value"
+        for segment in "${parts[@]}"; do
+            [[ $segment =~ ^(\*|[0-9]{1,2}(-[0-9]{1,2})?)(/[0-9]{1,2})?$ ]] || return 1
+            base=${segment%%/*}
+            if [[ $segment == */* ]]; then
+                step=${segment##*/}; (( 10#$step > 0 && 10#$step <= limits[index]+1 )) || return 1
+            fi
+            if [[ $base != '*' ]]; then
+                low=${base%-*}; high=${base##*-}
+                (( 10#$low >= minimum[index] && 10#$high <= limits[index] && 10#$low <= 10#$high )) || return 1
+            fi
+        done
+        index=$((index+1))
+    done
+}
+schedule_update() {
+    [[ $interactive == true ]] || fail '定时更新设置需要交互终端'
+    [[ $EUID == 0 ]] || fail '定时更新设置需要 root 权限'
+    command -v crontab >/dev/null || fail '请先安装并启用 cron 服务'
+    local choice schedule line
+    local cron_file="/etc/cron.d/boxlist-${instance}"
+    heading '设置定时自动更新'
+    printf '1、启用定时更新\n2、禁用定时更新\n3、查看当前设置\n0、返回主菜单\n\n'
+    read -r -p '请输入选项 [0-3]: ' choice || return 0
+    case "$choice" in
+        1)
+            printf '设置更新时间（cron 格式）\n默认：每周日凌晨2点 (0 2 * * 0)\n示例：每天凌晨3点 (0 3 * * *)\n'
+            read -r -p '请输入 cron 时间表达式 (默认: 0 2 * * 0): ' schedule || return 0
+            schedule=${schedule:-'0 2 * * 0'}
+            [[ $schedule =~ ^[0-9*/,-]+[[:blank:]]+[0-9*/,-]+[[:blank:]]+[0-9*/,-]+[[:blank:]]+[0-9*/,-]+[[:blank:]]+[0-9*/,-]+$ ]] || fail '无效 cron 表达式'
+            valid_schedule "$schedule" || fail 'cron 时间超出范围或格式无效'
+            [[ $install_dir != *%* && $install_dir != *\'* ]] || fail '安装路径包含 cron 不支持的字符'
+            printf -v line "%s root /bin/bash '%s/boxlist.sh' update --dir '%s' --non-interactive >> '%s/update.log' 2>&1" "$schedule" "$install_dir" "$install_dir" "$install_dir"
+            cron_tmp=$(mktemp)
+            trap 'rm -f -- "$cron_tmp"' EXIT
+            printf 'SHELL=/bin/sh\nPATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\n%s\n' "$line" > "$cron_tmp"
+            install -m 644 "$cron_tmp" "$cron_file"
+            rm -f -- "$cron_tmp"; trap - EXIT
+            printf '定时更新已启用\n更新时间：%s（服务器本地时间）\n' "$schedule" ;;
+        2) rm -f -- "$cron_file"; printf '定时更新已禁用\n' ;;
+        3) if [[ -f $cron_file ]]; then cat "$cron_file"; else printf '未设置定时更新\n'; fi ;;
+        0) return 0 ;; *) fail '无效的选项' ;;
+    esac
+}
 
 check_owner
 case "$command_name" in
@@ -500,13 +666,21 @@ case "$command_name" in
     logs) compose logs --tail 100 boxlist ;;
     configure) configure ;;
     backup) backup_data ;;
+    restore) restore_data ;;
+    schedule) schedule_update ;;
+    shell) compose exec boxlist /bin/sh ;;
+    remove-container)
+        read -r -p '确认删除容器？[y/N]: ' answer || exit 0
+        [[ $answer == y || $answer == Y ]] || exit 0
+        compose down
+        printf '容器已删除，应用数据保留。彻底卸载请使用主菜单 3。\n' ;;
     script-update) update_script ;;
     password)
         password_args=(random)
         if [[ $interactive == true ]]; then
-            heading '管理员密码'
-            printf '1) 生成随机密码\n2) 手动设置密码\n0) 返回\n'
-            read -r -p '请选择 [0-2]: ' choice || exit 0
+            heading '密码管理'
+            printf '1、生成随机密码\n2、设置新密码\n3、查看当前账号信息\n4、从日志中提取初始密码\n5、重置数据库（危险操作）\n0、返回主菜单\n\n'
+            read -r -p '请输入选项 [0-5]: ' choice || exit 0
             case "$choice" in
                 1) ;;
                 2)
@@ -517,6 +691,27 @@ case "$command_name" in
                         printf '密码不能为空且两次输入须一致，请重试。\n'
                     done
                     password_args=(set "$new_password") ;;
+                3)
+                    running=$(compose ps --status running -q boxlist)
+                    compose stop boxlist
+                    trap '[[ -z $running ]] || compose start boxlist' EXIT
+                    compose run --rm --no-deps boxlist admin --no-prefix
+                    exit 0 ;;
+                4) show_initial_credentials; exit 0 ;;
+                5)
+                    printf '警告：此操作将清空应用数据和配置，操作前自动备份。\n'
+                    read -r -p "确认重置？请输入 'RESET': " answer || exit 0
+                    [[ $answer == RESET ]] || exit 0
+                    backup_data
+                    running=$(compose ps --status running -q boxlist)
+                    compose stop boxlist
+                    trap '[[ -z $running ]] || compose start boxlist' EXIT
+                    compose run --rm --no-deps -T --user 0 --entrypoint sh boxlist -ec 'find /opt/openlist/data -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +'
+                    compose up -d --no-build --force-recreate
+                    ready
+                    show_initial_credentials
+                    trap - EXIT
+                    exit 0 ;;
                 0|'') exit 0 ;;
                 *) fail '无效选择' ;;
             esac
@@ -533,7 +728,7 @@ case "$command_name" in
         trap - EXIT
         [[ -z $running ]] || ready ;;
     uninstall)
-        heading '彻底卸载 Boxlist'
+        heading '彻底卸载 BoxList'
         printf '将删除：\n  · 实例 %s 的容器和网络\n  · 数据卷 %s_data（账号、设置和本地预览图）\n  · 安装目录 %s（包含其中的备份）\n  · 对应的 boxlist 管理命令\n\n外部挂载原文件、远端网盘及其他实例不受影响。\n' "$instance" "$instance" "$install_dir"
         if [[ $yes != true ]]; then
             read -r -p "此操作不可恢复，输入实例名 $instance 确认：" answer || exit 1
@@ -549,6 +744,7 @@ case "$command_name" in
             [[ -n $id ]] || continue
             [[ " $ids " == *" $id "* || $'\n'"$ids"$'\n' == *$'\n'"$id"$'\n'* ]] || fail '数据卷被其他容器引用，未执行卸载'
         done < <(docker ps -aq --no-trunc --filter "volume=${instance}_data")
+        if [[ $EUID == 0 ]]; then rm -f -- "/etc/cron.d/boxlist-${instance}"; fi
         compose down
         if docker volume inspect "${instance}_data" >/dev/null 2>&1; then docker volume rm "${instance}_data"; fi
         if [[ -f /usr/local/bin/boxlist ]]; then
@@ -559,12 +755,8 @@ case "$command_name" in
             if [[ $launcher == "$expected" ]]; then rm -f /usr/local/bin/boxlist; fi
         fi
         rm -rf -- "$install_dir"
-        printf '%sBoxlist 已彻底卸载。%s\n' "$success" "$reset" ;;
+        printf '%sBoxList 已彻底卸载。%s\n' "$success" "$reset" ;;
 esac
 
 # Never hold the operation lock while waiting for the next menu choice.
 exec 9>&-
-if [[ $command_name == install && $interactive == true && ${BOXLIST_MENU_CHILD:-0} != 1 ]]; then
-    pause_panel || exit 0
-    manage_panel
-fi

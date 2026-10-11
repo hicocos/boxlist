@@ -24,7 +24,7 @@ Docker 构建不要求宿主机安装 Node、pnpm、Go 或 libvips，但需要�
 
 ## 一键安装与管理
 
-脚本参考 [OpenList 官方管理脚本](https://doc.oplist.org/guide/installation/script)的安装和管理体验，为 Boxlist 的 GHCR 镜像独立实现；不安装 OpenList 官方二进制。支持 Linux AMD64 / ARM64，宿主需要 Bash、curl、coreutils（realpath、timeout）和 util-linux（flock）。
+脚本参考 [OpenList 官方管理脚本](https://doc.oplist.org/guide/installation/script)的安装和管理体验，为 BoxList 的 GHCR 镜像独立实现；不安装 OpenList 官方二进制。支持 Linux AMD64 / ARM64，宿主需要 Bash、curl、coreutils（realpath、timeout）和 util-linux（flock）。
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/hicocos/boxlist/main/install.sh -o install-boxlist.sh
@@ -33,7 +33,7 @@ sudo bash install-boxlist.sh install --install-docker
 
 `--install-docker` 允许在 Docker 不存在时下载并运行 `https://get.docker.com` 官方安装脚本，需要 root 及该脚本支持的发行版。已有 Docker 不会被重装；如果缺少 Compose 插件，需按发行版安装插件后重试。Docker 服务必须可访问，安装网络需要 GitHub、GHCR；脚本不修改防火墙或配置 HTTPS。
 
-默认配置目录 `/opt/boxlist`，容器和项目名 `boxlist`，数据卷 `boxlist_data`。安装向导可选择端口（默认 5244）、监听地址和站点地址；完成后直接显示初始账号密码，按 Enter 进入管理面板。保留旧数据安装时继续使用原密码。root 安装默认实例时会创建 `/usr/local/bin/boxlist`（不覆盖已有命令），运行 `sudo boxlist` 打开菜单。自动化安装可加 `--non-interactive`，使用参数和默认值并在完成后退出。
+运行一键命令首先进入管理菜单，选择 `1` 安装。默认配置目录 `/opt/boxlist`，容器和项目名 `boxlist`，数据卷 `boxlist_data`。安装时可选择端口（默认 5244）、监听地址和站点地址；完成后直接显示初始账号密码，按任意键返回主菜单。保留旧数据安装时继续使用原密码。root 安装默认实例时会创建 `/usr/local/bin/boxlist`（不覆盖已有命令），运行 `sudo boxlist` 打开菜单。自动化安装可加 `--non-interactive`，直接安装并在完成后退出。
 
 | 命令 | 行为 |
 | --- | --- |
@@ -45,6 +45,10 @@ sudo bash install-boxlist.sh install --install-docker
 | `sudo boxlist password` | 生成随机密码或交互设置新密码，完成后恢复此前运行状态 |
 | `sudo boxlist configure` | 修改端口、监听地址和站点地址并应用 |
 | `sudo boxlist backup` | 暂停服务后备份应用数据到安装目录的 `backups/`，再恢复运行 |
+| `sudo boxlist restore` | 选择备份恢复，覆盖前自动备份现有数据 |
+| `sudo boxlist docker` | Docker 子菜单：安装、进入容器、启停、日志及访问配置 |
+| `sudo boxlist schedule` | 启用、禁用或查看定时更新（需 root 和运行中的 cron 服务） |
+| `sudo boxlist system` / `about` | 系统状态 / 脚本与项目介绍 |
 | `sudo boxlist script-update` | 更新管理脚本 |
 | `sudo boxlist uninstall` | 确认后彻底删除容器、网络、应用数据卷、安装目录及对应管理命令 |
 
@@ -120,7 +124,7 @@ services:
 
 ### 反向代理与 HTTPS
 
-建议由 Nginx、Caddy 等在站点根路径终止 TLS，再代理至 Boxlist。证书申请、域名 DNS 和证书续期由部署者管理，镜像不会自动配置这些服务。
+建议由 Nginx、Caddy 等在站点根路径终止 TLS，再代理至 BoxList。证书申请、域名 DNS 和证书续期由部署者管理，镜像不会自动配置这些服务。
 
 下面是放入**已经配置好域名、HTTPS 监听与证书的 Nginx `server` 块**中的位置配置；不是完整 TLS 配置：
 

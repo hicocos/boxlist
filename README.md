@@ -1,6 +1,6 @@
 <div align="center">
 
-# Boxlist
+# BoxList
 
 基于 OpenList 的多存储文件管理程序，支持在线预览、图片阅读和个性化界面。
 
@@ -28,7 +28,7 @@
 curl -fsSL https://raw.githubusercontent.com/hicocos/boxlist/main/install.sh -o install-boxlist.sh && sudo bash install-boxlist.sh install --install-docker
 ```
 
-安装后访问 `http://服务器IP:5244`，使用 `sudo boxlist logs` 查看初始密码。
+进入菜单后选择 `1` 安装，端口可自行设置（默认 `5244`）。安装完成会直接显示访问地址和初始账号密码。
 
 运行 `sudo boxlist` 打开管理菜单，或使用 `sudo boxlist update` 更新。
 
@@ -48,7 +48,7 @@ curl -fsSL https://raw.githubusercontent.com/hicocos/boxlist/main/install.sh -o 
 
 ## 致谢
 
-本项目基于 [OpenList](https://github.com/OpenListTeam/OpenList) 及其[前端](https://github.com/OpenListTeam/OpenList-Frontend)开发，感谢上游项目和所有贡献者。Boxlist 是独立衍生项目，与 OpenList 官方无隶属关系。
+本项目基于 [OpenList](https://github.com/OpenListTeam/OpenList) 及其[前端](https://github.com/OpenListTeam/OpenList-Frontend)开发，感谢上游项目和所有贡献者。BoxList 是独立衍生项目，与 OpenList 官方无隶属关系。
 
 ## 许可证
 
