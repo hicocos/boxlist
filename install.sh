@@ -102,8 +102,20 @@ if [[ -t 1 && -z ${NO_COLOR:-} && ${TERM:-dumb} != dumb ]]; then
     success=$'\033[1;32m'; warning=$'\033[1;33m'
     reset=$'\033[0m'
 fi
+install_args=(--name "$instance" --image "$image")
+[[ $port_explicit == false ]] || install_args+=(--port "$port")
+[[ $bind_explicit == false ]] || install_args+=(--bind "$bind")
+[[ $site_explicit == false ]] || install_args+=(--site-url "$site_url")
+[[ $install_docker == false ]] || install_args+=(--install-docker)
+[[ -z $existing_data ]] || install_args+=(--existing-data "$existing_data")
+[[ -z $confirm_delete ]] || install_args+=(--confirm-delete "$confirm_delete")
 heading() { printf '\n%s%s%s\n\n' "$success" "$1" "$reset"; }
 pause_panel() { read -r -s -n1 -p '按任意键继续 ... ' _ || return 1; printf '\n'; }
+clear_screen() { if [[ -t 1 && ${TERM:-dumb} != dumb ]]; then printf '\033[H\033[2J'; fi; }
+if [[ $interactive == true && ${BOXLIST_MENU_CHILD:-0} != 1 ]]; then
+    if [[ -t 1 && ${TERM:-dumb} != dumb ]]; then printf '\033[3J'; fi
+    clear_screen
+fi
 valid_port() { [[ $1 =~ ^[1-9][0-9]{0,4}$ ]] && (( $1 <= 65535 )); }
 valid_bind() {
     local octet
@@ -165,10 +177,10 @@ panel_status() {
     printf '  实例  %s\n' "$name"
 }
 manage_panel() {
-    local choice action
+    local choice action had_install
     local -a args
     while true; do
-        if [[ -t 1 && ${TERM:-dumb} != dumb ]]; then printf '\033[H\033[2J'; fi
+        clear_screen
         printf '\n欢迎使用 BoxList 管理脚本 \n\n%s' "$success"
         cat <<'MENU'
 基础功能：
@@ -206,44 +218,40 @@ MENU
             *) printf '%s无效的选项%s\n' "$warning" "$reset"; pause_panel || return 0; continue ;;
         esac
         args=("$action" --dir "$install_dir")
-        if [[ $action == install ]]; then
-            args+=(--name "$instance" --image "$image")
-            [[ $port_explicit == false ]] || args+=(--port "$port")
-            [[ $bind_explicit == false ]] || args+=(--bind "$bind")
-            [[ $site_explicit == false ]] || args+=(--site-url "$site_url")
-            [[ $install_docker == false ]] || args+=(--install-docker)
-        fi
-        # Run actions in a fresh shell: a failed action must not kill the panel
-        # or disable errexit inside commands that mutate configuration.
-        if BOXLIST_MENU_CHILD=1 bash "$script_path" "${args[@]}"; then
-            printf '\n%s操作结束。%s\n' "$success" "$reset"
-        else
-            printf '\n%s操作未完成，请查看上方原因；可以重新选择。%s\n' "$warning" "$reset"
-        fi
-        if [[ $action == uninstall && ! -e $install_dir/.boxlist-managed ]]; then return 0; fi
+        if [[ $action == install || $action == docker ]]; then args+=("${install_args[@]}"); fi
+        had_install=false
+        [[ ! -f $install_dir/.boxlist-managed ]] || had_install=true
+        # Isolate failures so an action never terminates the menu loop.
+        BOXLIST_MENU_CHILD=1 bash "$script_path" "${args[@]}" || true
+        if [[ $action == uninstall && $had_install == true && ! -e $install_dir/.boxlist-managed ]]; then return 0; fi
         pause_panel || return 0
-        if [[ $action == script-update && -f $install_dir/boxlist.sh ]]; then
-            exec bash "$install_dir/boxlist.sh" menu --dir "$install_dir"
-        fi
     done
 }
 docker_menu() {
     local choice action
     heading 'Docker 管理'
-    printf '1、Docker 安装 BoxList\n2、进入 Docker 容器\n3、Docker 密码管理\n4、查看 Docker 状态\n5、停止 Docker 容器\n6、启动 Docker 容器\n7、重启 Docker 容器\n8、删除容器\n9、查看日志\n10、修改端口 / 站点\n11、更新管理脚本\n0、返回主菜单\n\n'
-    read -r -p '请输入选项 [0-11]: ' choice || return 0
+    printf '1、Docker 安装 BoxList\n2、进入 Docker 容器\n3、Docker 密码管理\n4、查看 Docker 状态\n5、停止 Docker 容器\n6、启动 Docker 容器\n7、重启 Docker 容器\n8、删除容器\n0、返回主菜单\n\n'
+    read -r -p '请输入选项 [0-8]: ' choice || return 0
     case "$choice" in
         1) action=install ;; 2) action=shell ;; 3) action=password ;;
         4) action=status ;; 5) action=stop ;; 6) action=start ;;
-        7) action=restart ;; 8) action=remove-container ;; 9) action=logs ;;
-        10) action=configure ;; 11) action=script-update ;; 0) return 0 ;;
+        7) action=restart ;; 8) action=remove-container ;; 0) return 0 ;;
         *) fail '无效的选项' ;;
     esac
-    BOXLIST_MENU_CHILD=1 bash "$script_path" "$action" --dir "$install_dir"
+    local -a args=("$action" --dir "$install_dir")
+    if [[ $action == install ]]; then args+=("${install_args[@]}"); fi
+    BOXLIST_MENU_CHILD=1 bash "$script_path" "${args[@]}"
 }
 show_about() {
     printf '\n┌────────────────────────────────────────────────────┐\n│               BoxList Manage Script                │\n├────────────────────────────────────────────────────┤\n│  基于 OpenList 管理脚本交互适配                      │\n│  项目：https://github.com/hicocos/boxlist             │\n│  上游：OpenList Dev Team / ILoveScratch              │\n│  脚本许可证：MIT                                   │\n│  支持平台：Linux AMD64 / ARM64                     │\n└────────────────────────────────────────────────────┘\n\n感谢使用 BoxList 管理脚本！\n'
 }
+# All installed-instance operations share the same precondition, before Docker checks.
+if [[ $command_name != menu && $command_name != install && $command_name != docker && $command_name != system && $command_name != about && ! -f $install_dir/.boxlist-managed ]]; then
+    heading 'BoxList 未安装'
+    printf '请先在主菜单选择 1 安装 BoxList。\n'
+    [[ ${BOXLIST_MENU_CHILD:-0} == 1 || $command_name == status ]] && exit 0
+    exit 1
+fi
 if [[ $command_name == about ]]; then show_about; exit 0; fi
 if [[ $command_name == system ]]; then
     heading '系统状态检查'
@@ -264,10 +272,6 @@ fi
 [[ $command_name == install || $install_options == false ]] || fail '名称、端口、镜像等参数仅用于新安装；已有实例请修改 .env'
 [[ -z $existing_data || $existing_data == reuse || $existing_data == reset ]] || fail '--existing-data 只能是 reuse 或 reset'
 [[ -z $confirm_delete || $existing_data == reset ]] || fail '--confirm-delete 必须与 --existing-data reset 一起使用'
-if [[ $command_name == status && ! -f $install_dir/.boxlist-managed ]]; then
-    heading 'BoxList 未安装'
-    exit 0
-fi
 
 command -v curl >/dev/null || fail '请先安装 curl'
 command -v flock >/dev/null || fail '请先安装 util-linux（flock）'
@@ -610,7 +614,7 @@ schedule_update() {
             printf '定时更新已启用\n更新时间：%s（服务器本地时间）\n' "$schedule" ;;
         2) rm -f -- "$cron_file"; printf '定时更新已禁用\n' ;;
         3) if [[ -f $cron_file ]]; then cat "$cron_file"; else printf '未设置定时更新\n'; fi ;;
-        0) return 0 ;; *) fail '无效的选项' ;;
+        0|'') return 0 ;; *) fail '无效的选项' ;;
     esac
 }
 
