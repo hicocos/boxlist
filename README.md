@@ -34,6 +34,8 @@ curl -fsSL https://raw.githubusercontent.com/hicocos/boxlist/main/install.sh -o 
 
 其他部署方式见[部署指南](DEPLOYMENT.md)。
 
+管理页新生成或重置的令牌使用 `boxlist-` 前缀；已有令牌保持有效，不自动改写。如需更换旧前缀，请重置令牌并同步更新使用它的客户端。网页下载的备份文件名为 `boxlist_backup_<日期时间>.json`。
+
 ## 文档
 
 - [安装与管理](DEPLOYMENT.md#一键安装与管理)

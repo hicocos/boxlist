@@ -27,7 +27,7 @@ func String(n int) string {
 }
 
 func Token() string {
-	return "openlist-" + uuid.NewString() + String(64)
+	return "boxlist-" + uuid.NewString() + String(64)
 }
 
 func RangeInt64(left, right int64) int64 {

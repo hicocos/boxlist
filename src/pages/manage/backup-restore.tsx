@@ -193,7 +193,7 @@ const BackupRestore = () => {
     allData.derivatives = encrypt(previews.data, password())
     appendLog(t("br.success_backup_item", { item: t("br.derivatives") }), "success")
     download(
-      "openlist_backup_" + new Date().toLocaleString() + ".json",
+      "boxlist_backup_" + new Date().toLocaleString() + ".json",
       allData,
     )
     appendLog(t("br.finish_backup"), "info")
