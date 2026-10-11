@@ -168,6 +168,7 @@ manage_panel() {
     local choice action
     local -a args
     while true; do
+        if [[ -t 1 && ${TERM:-dumb} != dumb ]]; then printf '\033[H\033[2J'; fi
         printf '\n欢迎使用 BoxList 管理脚本 \n\n%s' "$success"
         cat <<'MENU'
 基础功能：
@@ -263,6 +264,10 @@ fi
 [[ $command_name == install || $install_options == false ]] || fail '名称、端口、镜像等参数仅用于新安装；已有实例请修改 .env'
 [[ -z $existing_data || $existing_data == reuse || $existing_data == reset ]] || fail '--existing-data 只能是 reuse 或 reset'
 [[ -z $confirm_delete || $existing_data == reset ]] || fail '--confirm-delete 必须与 --existing-data reset 一起使用'
+if [[ $command_name == status && ! -f $install_dir/.boxlist-managed ]]; then
+    heading 'BoxList 未安装'
+    exit 0
+fi
 
 command -v curl >/dev/null || fail '请先安装 curl'
 command -v flock >/dev/null || fail '请先安装 util-linux（flock）'
