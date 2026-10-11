@@ -19,6 +19,11 @@ func list(ctx context.Context, path string, args *ListArgs) ([]model.Obj, error)
 	virtualFiles := op.GetStorageVirtualFilesWithDetailsByPath(ctx, path, !args.WithStorageDetails, args.Refresh, "")
 	storage, actualPath, err := op.GetStorageAndActualPath(path)
 	if err != nil && len(virtualFiles) == 0 {
+		// The virtual root exists even before the first storage is mounted.
+		// Keep missing subpaths and mounted-driver failures as errors.
+		if path == "/" && errors.Is(err, errs.StorageNotFound) {
+			return virtualFiles, nil
+		}
 		return nil, errors.WithMessage(err, "failed get storage")
 	}
 

@@ -78,6 +78,8 @@ docker compose logs boxlist
 
 服务名和容器名均为 `boxlist`，默认镜像为 `ghcr.io/hicocos/boxlist:latest`。首次创建管理员时密码只输出到控制台，之后数据库保存的是哈希；不要把启动日志作为公开故障报告上传。
 
+全新安装默认禁用访客，未登录访问首页会进入登录页。管理员登录后，尚未挂载存储的根目录正常显示空目录和“转到存储”引导，不应出现目录加载失败或 API 500；添加存储后首页显示挂载目录。一键脚本使用同一 Docker 镜像，因此两种安装方式行为一致。此处理仅适用于无存储的虚拟根目录，不会隐藏已挂载存储的读取故障或绕过访问权限。
+
 访问服务器的 5244 端口，登录后修改密码、添加存储并检查访客/用户权限。若丢失密码，可停止服务后通过同一数据卷运行密码重置命令，避免另起一个服务进程：
 
 ```sh
@@ -200,7 +202,7 @@ cd boxlist
 docker compose -f compose.yaml -f compose.build.yaml up -d --build
 ```
 
-构建覆盖文件使用 `boxlist:local`，禁止拉取同名远端镜像。可以设置 `BOXLIST_VERSION` 和 `SOURCE_COMMIT` 作为构建版本信息。更新源码后重新执行相同构建命令；后续日志、停止、管理员命令等操作也使用同样的两个 `-f` 参数。不要只运行默认 `docker compose up`，否则会切换回 GHCR 镜像。
+构建覆盖文件使用 `boxlist:local`，禁止拉取同名远端镜像。`Dockerfile`、`Dockerfile.deploy` 及两个源码构建 Compose 配置的默认程序版本均为 `v1.0`；Compose 可通过 `BOXLIST_VERSION` 指定版本，通过 `SOURCE_COMMIT` 单独记录提交 ID（未提供时为 `unknown`，不会冒用固定历史提交）。例如在构建命令前设置 `SOURCE_COMMIT="$(git rev-parse HEAD)"`；这只记录检出的提交，不代表工作区没有本地修改。更新源码后重新执行相同构建命令；后续日志、停止、管理员命令等操作也使用同样的两个 `-f` 参数。不要只运行默认 `docker compose up`，否则会切换回 GHCR 镜像。
 
 ### 镜像发布
 
@@ -208,12 +210,17 @@ docker compose -f compose.yaml -f compose.build.yaml up -d --build
 
 - `main` 发布 `latest` 和 `sha-完整提交SHA`。
 - `v*` 标签发布同名镜像标签及提交标签，不覆盖 `latest`；手动运行根据所选分支/标签遵循同样规则。
+- 镜像标签与程序版本分开：分支构建从 `package.json` 生成程序版本（当前 `1.0.0` → `v1.0`），`v*` 标签构建使用标签名；`sha-…` 仅作为定位提交的镜像标签。构建参数 `VERSION` 同时写入后端 `Version`、`WebVersion` 和 OCI `org.opencontainers.image.version`，`SOURCE_COMMIT` 单独写入 `GitCommit` 和 OCI `org.opencontainers.image.revision`。
 - 工作流使用仓库的 `GITHUB_TOKEN`，需要 Actions 可运行且允许 `packages: write`，无需另存个人令牌。
 - GHCR 新建包可能默认为私有。首次发布后，在 GitHub 的 `Packages → boxlist → Package settings` 中将可见性设为 Public，才能让普通用户免登录拉取。公开源码仓库不自动保证容器包公开。
 - 首次发布完成并确认匿名拉取成功后再使用镜像部署；若提示 `denied`，检查包可见性与访问权限；若提示 `manifest unknown`，检查工作流是否成功及标签是否存在。源码构建可在发布前使用。
 - Fork 会发布到自己的小写仓库路径，部署时需通过 `BOXLIST_IMAGE` 指向自己的包。
 
 发布状态见 [Actions](https://github.com/hicocos/boxlist/actions/workflows/publish-image.yml)，可用标签见 [Packages](https://github.com/hicocos/boxlist/pkgs/container/boxlist)。
+
+一键安装会先执行 `docker pull`，脚本更新会执行 `docker compose pull`；手动 Docker 部署也应先拉取再执行 `up -d`，仅 `restart` 不会更新镜像。拉取会重新解析远端标签，已存在的相同内容层可复用；源码或上述构建参数变化会使对应 BuildKit 构建步骤重新执行，无需常规禁用缓存。
+
+**仓库修复不会改写已发布镜像。** 只有包含修复的 `main` 多架构发布成功，默认 `latest` 安装才会获得修复；仅发布 `v*` 标签不会推进 `latest`。固定旧标签、提交标签或 digest 的实例仍需主动选择包含修复的镜像。若远端标签尚未更新，重复拉取或重建容器仍是旧程序。一键脚本按实际镜像的 OCI 版本标签显示版本：旧标签中的 `sha-…` 原样显示，缺失版本显示“未知”，不将旧镜像伪装为 `v1.0`。可用 `docker compose exec boxlist /opt/openlist/openlist version` 核对运行中二进制的 `Version`、`WebVersion` 与 `Commit ID`；使用自定义 Compose 文件时保留原来的 `-f` 参数。后端启动会用编译版本刷新公开设置中的 `version`，无需删除数据卷来更新版本。
 
 ## 备份与恢复
 

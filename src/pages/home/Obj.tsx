@@ -37,6 +37,7 @@ import { validPage } from "~/store/navigation-state"
 import { DirectoryError } from "./DirectoryError"
 import "./directory-navigation.css"
 import { FullLoading } from "~/components/FullLoading"
+import { uxText } from "~/utils/ux"
 
 const Folder = lazy(() => import("./folder/Folder"))
 const File = lazy(() => import("./file/File"))
@@ -166,6 +167,21 @@ export const Obj = () => {
                 </Text>
               </Show>
             </Password>
+          </Match>
+          <Match when={objStore.state === State.Folder && objStore.total === 0 && !isShare() && pathname() === "/"}>
+            <VStack role="status" w="$full" p="$6" spacing="$3">
+              <Text>{uxText("此目录暂无文件。", "This folder is empty.", "此目錄暫無檔案。")}</Text>
+              <Show when={!isShare() && pathname() === "/" && UserMethods.is_admin(me())}>
+                <Text textAlign="center">
+                  {uxText(
+                    "首次使用？请先在管理页面添加存储，再返回首页浏览文件。",
+                    "Getting started? Add a storage in management, then return here to browse your files.",
+                    "首次使用？請先在管理頁面新增儲存，再返回首頁瀏覽檔案。",
+                  )}
+                </Text>
+                {storageErrorActions()}
+              </Show>
+            </VStack>
           </Match>
           <Match
             when={[State.Folder, State.FetchingMore].includes(objStore.state)}

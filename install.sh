@@ -162,7 +162,7 @@ display_version() {
     local value
     value=$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$1")
     case "$value" in
-        sha-*|unknown|'<no value>'|'') printf 'v1.0' ;;
+        unknown|'<no value>'|'') printf '未知' ;;
         *) printf '%s' "$value" ;;
     esac
 }
