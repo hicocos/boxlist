@@ -766,12 +766,13 @@ case "$command_name" in
         trap - EXIT
         [[ -z $running ]] || ready ;;
     uninstall)
-        heading '彻底卸载 BoxList'
-        printf '将删除：\n  · 实例 %s 的容器和网络\n  · 数据卷 %s_data（账号、设置和本地预览图）\n  · 安装目录 %s（包含其中的备份）\n  · 对应的 boxlist 管理命令\n\n外部挂载原文件、远端网盘及其他实例不受影响。\n' "$instance" "$instance" "$install_dir"
+        printf '找到 BoxList 安装路径：%s\n' "$install_dir"
+        printf '警告：卸载后将删除本地 BoxList 目录、数据库文件及命令行工具！\n'
         if [[ $yes != true ]]; then
-            read -r -p "此操作不可恢复，输入实例名 $instance 确认：" answer || exit 1
-            [[ $answer == "$instance" ]] || { printf '已取消。\n'; exit 0; }
+            read -r -p '是否确认卸载？[y/N]: ' answer || exit 0
+            [[ $answer == y || $answer == Y ]] || { printf '已取消卸载\n'; exit 0; }
         fi
+        printf '开始卸载...\n'
         ids=$(compose ps -aq boxlist)
         for id in $ids; do
             mount=$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/opt/openlist/data"}}{{.Type}}:{{.Name}}{{end}}{{end}}' "$id")
@@ -793,7 +794,7 @@ case "$command_name" in
             if [[ $launcher == "$expected" ]]; then rm -f /usr/local/bin/boxlist; fi
         fi
         rm -rf -- "$install_dir"
-        printf '%sBoxList 已彻底卸载。%s\n' "$success" "$reset" ;;
+        printf '%sBoxList 已完全卸载%s\n' "$success" "$reset" ;;
 esac
 
 # Never hold the operation lock while waiting for the next menu choice.
