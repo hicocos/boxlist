@@ -42,7 +42,7 @@ jobs:
         run: |
           image="ghcr.io/${REPOSITORY,,}"
           commit="$(git rev-parse HEAD)"
-          version="sha-${commit}"
+          version="v$(jq -r '.version | sub("\\.0$"; "")' package.json)"
           tags=("${image}:sha-${commit}")
           if [[ "$REF" == refs/tags/v* ]]; then
             version="$REF_NAME"

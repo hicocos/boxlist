@@ -158,6 +158,14 @@ prompt_site() {
         printf '请输入 https:// 开头的地址，或留空。\n'
     done
 }
+display_version() {
+    local value
+    value=$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$1")
+    case "$value" in
+        sha-*|unknown|'<no value>'|'') printf 'v1.0' ;;
+        *) printf '%s' "$value" ;;
+    esac
+}
 panel_status() {
     local name state id
     if [[ ! -f $install_dir/.boxlist-managed ]]; then
@@ -174,8 +182,8 @@ panel_status() {
         state=$(docker inspect --format '{{.State.Status}}' "$id")
         case "$state" in running) state=运行中 ;; exited|created) state=已停止 ;; restarting) state=重启中 ;; esac
         printf '  状态  %s%s%s\n' "$success" "$state" "$reset"
-        docker inspect --format '  镜像  {{.Config.Image}}{{range $port, $bindings := .HostConfig.PortBindings}}{{range $bindings}}{{printf "\n  端口  %s:%s" .HostIp .HostPort}}{{end}}{{end}}' "$id"
-        docker inspect --format '  版本  {{index .Config.Labels "org.opencontainers.image.version"}}' "$id"
+        docker inspect --format '{{range $port, $bindings := .HostConfig.PortBindings}}{{range $bindings}}{{printf "  端口  %s:%s\n" .HostIp .HostPort}}{{end}}{{end}}' "$id"
+        printf '  版本  %s\n' "$(display_version "$id")"
     fi
     printf '  实例  %s\n' "$name"
     if [[ -f $install_dir/.installed-at ]]; then printf '  安装时间  %s\n' "$(cat "$install_dir/.installed-at")"; fi
@@ -442,6 +450,83 @@ show_initial_credentials() {
         printf '\n  已保留原账号与密码，未进行重置。\n  忘记密码可在管理面板选择“重置管理员密码”。\n'
     fi
 }
+
+install_manager_commands() {
+    local target expected current
+    manager_commands=false
+    [[ $EUID == 0 && $instance == boxlist ]] || return 0
+    # Match the existing launcher as well as the new full-name command.
+    # shellcheck disable=SC2016
+    printf -v expected '#!/usr/bin/env bash\nexec bash %q "${1:-menu}" --dir %q "${@:2}"' "$install_dir/boxlist.sh" "$install_dir"
+    for target in /usr/local/bin/boxlist /usr/local/bin/boxlist-manager; do
+        if [[ -e $target || -L $target ]]; then
+            current=$(cat -- "$target" 2>/dev/null) || return 0
+            [[ $current == "$expected" ]] || return 0
+        fi
+    done
+    mkdir -p /usr/local/bin
+    for target in /usr/local/bin/boxlist /usr/local/bin/boxlist-manager; do
+        printf '%s\n' "$expected" > "$target"
+        chmod 755 "$target"
+    done
+    manager_commands=true
+}
+
+text_width() {
+    local text=$1 char code width=0 i
+    local LC_ALL=C.UTF-8
+    for (( i=0; i<${#text}; i++ )); do
+        char=${text:i:1}
+        printf -v code '%d' "'$char"
+        if (( (code >= 0x2e80 && code <= 0xa4cf) || (code >= 0xac00 && code <= 0xd7a3) || (code >= 0xff01 && code <= 0xff60) )); then
+            width=$((width+2))
+        else
+            width=$((width+1))
+        fi
+    done
+    printf '%s' "$width"
+}
+
+show_install_success() {
+    local id address host_port host_bind local_ip='' public_ip='' endpoint config_path line password='' width=50 size border
+    local -a rows=('BoxList 安装成功！' '' )
+    id=$(compose ps -q boxlist)
+    rows+=("版本信息：$(display_version "$id")" '' '访问地址：')
+    address=$(compose port boxlist 5244)
+    host_port=${address##*:}; host_bind=${address%:*}
+    endpoint=${DOCKER_HOST:-}
+    if [[ -z $endpoint ]]; then endpoint=$(docker context inspect --format '{{.Endpoints.docker.Host}}'); fi
+    if [[ $host_bind == 0.0.0.0 || $host_bind == '[::]' ]]; then
+        if [[ $endpoint == unix://* ]]; then
+            read -r local_ip _ <<< "$(hostname -I 2>/dev/null || true)"
+            [[ -z $local_ip ]] || rows+=("  局域网：http://${local_ip}:${host_port}/")
+            public_ip=$(curl -4fsS --connect-timeout 2 --max-time 4 https://api.ipify.org 2>/dev/null) || public_ip=
+            if valid_bind "$public_ip"; then rows+=("  公网：  http://${public_ip}:${host_port}/"); else rows+=('  公网：  未能获取，请使用服务器公网 IP'); fi
+        else
+            rows+=("  远程 Docker 主机端口：${host_port}")
+        fi
+    else
+        rows+=("  访问地址：http://${host_bind}:${host_port}/")
+    fi
+    [[ -z $site_url ]] || rows+=("  站点：$site_url")
+    config_path=$(docker inspect --format '{{range .Mounts}}{{if eq .Destination "/opt/openlist/data"}}{{.Source}}/config.json{{end}}{{end}}' "$id")
+    rows+=("配置文件：${config_path:-容器内 /opt/openlist/data/config.json}" '' '账号信息：')
+    while IFS= read -r line; do
+        case "$line" in *'Successfully created the admin user and the initial password is: '*) password=${line##*initial password is: } ;; esac
+    done < <(compose logs --no-color boxlist)
+    if [[ -n $password ]]; then rows+=('默认账号：admin' "初始密码：$password"); else rows+=('账号密码：沿用原有账号密码'); fi
+    for line in "${rows[@]}"; do size=$(text_width "$line"); (( size <= width )) || width=$size; done
+    printf -v border '%*s' "$((width+2))" ''; border=${border// /─}
+    printf '┌%s┐\n' "$border"
+    for line in "${rows[@]}"; do size=$(text_width "$line"); printf '│ %s%*s │\n' "$line" "$((width-size))" ''; done
+    printf '└%s┘\n' "$border"
+    if [[ $manager_commands == true ]]; then
+        printf '命令行工具安装成功！\n\n现在你可以使用以下命令：\n1. boxlist          - 快捷命令\n2. boxlist-manager  - 完整命令\n\n服务已启动。\n管理: 在任意目录输入 boxlist 打开管理菜单\n'
+    else
+        printf '\n服务已启动。\n管理: bash %q --dir %q\n' "$install_dir/boxlist.sh" "$install_dir"
+    fi
+    printf '\n温馨提示：如果端口无法访问，请检查服务器安全组、防火墙和服务状态\n'
+}
 read_settings() {
     local line key value
     while IFS= read -r line || [[ -n $line ]]; do
@@ -516,6 +601,7 @@ update_script() {
     chmod 700 "$download"
     mv -- "$download" "$install_dir/boxlist.sh"
     trap - EXIT
+    install_manager_commands
     printf '管理脚本已更新。\n'
 }
 restore_data() {
@@ -649,25 +735,10 @@ case "$command_name" in
         printf '%s\n' "$instance" > "$marker"
         compose up -d --no-build
         ready
-        if [[ $EUID == 0 && $instance == boxlist ]]; then
-            if [[ ! -e /usr/local/bin/boxlist && ! -L /usr/local/bin/boxlist ]]; then
-                # Positional parameters belong to the generated launcher.
-                # shellcheck disable=SC2016
-                printf '#!/usr/bin/env bash\nexec bash %q "${1:-menu}" --dir %q "${@:2}"\n' \
-                    "$install_dir/boxlist.sh" "$install_dir" > /usr/local/bin/boxlist
-                chmod 755 /usr/local/bin/boxlist
-            else
-                printf '已有 /usr/local/bin/boxlist，未覆盖。\n'
-            fi
-        fi
+        install_manager_commands
         date '+%Y-%m-%d %H:%M:%S' > "$install_dir/.installed-at"
         if [[ $interactive == true ]]; then clear_screen; fi
-        printf '\n┌────────────────────────────────────────────────────┐\n│                 BoxList 安装成功！                 │\n└────────────────────────────────────────────────────┘\n'
-        compose exec -T boxlist /opt/openlist/openlist version
-        show_access
-        show_initial_credentials
-        printf '\n  管理命令  bash %q --dir %q\n' "$install_dir/boxlist.sh" "$install_dir"
-        printf '\n  使用方法：在浏览器打开上面的地址，输入账号和密码登录。\n  无法访问时，请检查服务器防火墙或安全组是否放行访问端口。\n'
+        show_install_success
         ;;
     update)
         printf '更新将保留数据卷与配置；请确保已完成备份。\n'
@@ -680,7 +751,7 @@ case "$command_name" in
         new_id=$(compose ps -q boxlist)
         new_image=$(docker inspect --format '{{.Image}}' "$new_id")
         if [[ $old_image == "$new_image" ]]; then printf '当前已是最新镜像，无需更新程序。\n'; else printf 'BoxList 更新完成！\n'; fi
-        compose exec -T boxlist /opt/openlist/openlist version ;;
+        printf '当前版本：%s\n' "$(display_version "$new_id")" ;;
     start) compose up -d --no-build; ready ;;
     stop) compose stop; printf 'BoxList 已停止\n' ;;
     restart) compose restart; ready; printf 'BoxList 已重启\n' ;;
@@ -786,13 +857,15 @@ case "$command_name" in
         if [[ $EUID == 0 ]]; then rm -f -- "/etc/cron.d/boxlist-${instance}"; fi
         compose down
         if docker volume inspect "${instance}_data" >/dev/null 2>&1; then docker volume rm "${instance}_data"; fi
-        if [[ -f /usr/local/bin/boxlist ]]; then
-            launcher=$(cat /usr/local/bin/boxlist)
-            # Match literal parameters in our generated launcher only.
-            # shellcheck disable=SC2016
-            printf -v expected '#!/usr/bin/env bash\nexec bash %q "${1:-menu}" --dir %q "${@:2}"' "$install_dir/boxlist.sh" "$install_dir"
-            if [[ $launcher == "$expected" ]]; then rm -f /usr/local/bin/boxlist; fi
-        fi
+        # Remove only launchers belonging to this installation.
+        # shellcheck disable=SC2016
+        printf -v expected '#!/usr/bin/env bash\nexec bash %q "${1:-menu}" --dir %q "${@:2}"' "$install_dir/boxlist.sh" "$install_dir"
+        for target in /usr/local/bin/boxlist /usr/local/bin/boxlist-manager; do
+            if [[ -f $target ]]; then
+                launcher=$(cat -- "$target")
+                if [[ $launcher == "$expected" ]]; then rm -f -- "$target"; fi
+            fi
+        done
         rm -rf -- "$install_dir"
         printf '%sBoxList 已完全卸载%s\n' "$success" "$reset" ;;
 esac
