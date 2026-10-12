@@ -3,6 +3,7 @@ import {
   Box,
   Button,
   HStack,
+  Input,
   Td,
   Text,
   Tr,
@@ -12,10 +13,10 @@ import {
   ProgressIndicator,
   ProgressLabel,
 } from "@hope-ui/solid"
-import { Show } from "solid-js"
+import { createSignal, Show } from "solid-js"
 import { useFetch, useRouter, useT } from "~/hooks"
 import { getMainColor } from "~/store"
-import { MountDetails, PEmptyResp, Storage } from "~/types"
+import { MountDetails, PEmptyResp, Resp, Storage } from "~/types"
 import {
   handleResp,
   handleRespWithNotifySuccess,
@@ -31,6 +32,71 @@ import { DeletePopover } from "../common/DeletePopover"
 interface StorageProps {
   storage: Storage
   refresh: () => void
+}
+
+function StorageOrder(props: StorageProps) {
+  const t = useT()
+  const [order, setOrder] = createSignal(String(props.storage.order))
+  const [saving, save] = useFetch(async (): PEmptyResp => {
+    // Fetch the full, current configuration before updating only its order.
+    const current: Resp<Storage> = await r.get(
+      `/admin/storage/get?id=${props.storage.id}`,
+    )
+    if (current.code !== 200) return current
+    return r.post("/admin/storage/update", {
+      ...current.data,
+      order: Number(order()),
+    })
+  })
+  return (
+    <HStack
+      as="form"
+      spacing="$2"
+      onSubmit={async (event: SubmitEvent) => {
+        event.preventDefault()
+        if (
+          saving() ||
+          !/^-?\d+$/.test(order()) ||
+          !Number.isSafeInteger(Number(order())) ||
+          Number(order()) === props.storage.order
+        )
+          return
+        const resp = await save()
+        handleRespWithNotifySuccess(resp, props.refresh)
+      }}
+    >
+      <Text
+        as="label"
+        for={`storage-order-${props.storage.id}`}
+        css={{ whiteSpace: "nowrap" }}
+      >
+        {t("storages.common.order")}
+      </Text>
+      <Input
+        id={`storage-order-${props.storage.id}`}
+        type="number"
+        step={1}
+        required
+        size="sm"
+        w="$20"
+        value={order()}
+        disabled={saving()}
+        onInput={(event) => setOrder(event.currentTarget.value)}
+      />
+      <Button
+        type="submit"
+        size="sm"
+        loading={saving()}
+        disabled={
+          !/^-?\d+$/.test(order()) ||
+          !Number.isSafeInteger(Number(order())) ||
+          Number(order()) === props.storage.order
+        }
+      >
+        {t("global.save")}
+      </Button>
+    </HStack>
+  )
 }
 
 function StorageOp(props: StorageProps) {
@@ -154,6 +220,7 @@ export function StorageGridItem(props: StorageProps) {
         />
       </HStack>
       <Text css={{ wordBreak: "break-all" }}>{props.storage.remark}</Text>
+      <StorageOrder {...props} />
       <HStack spacing="$2">
         <StorageOp {...props} />
       </HStack>
@@ -167,7 +234,9 @@ export function StorageListItem(props: StorageProps) {
     <Tr>
       <Td>{props.storage.mount_path}</Td>
       <Td>{t(`drivers.drivers.${props.storage.driver}`)}</Td>
-      <Td>{props.storage.order}</Td>
+      <Td>
+        <StorageOrder {...props} />
+      </Td>
       <Td>
         <StorageUsage details={props.storage.mount_details} />
       </Td>

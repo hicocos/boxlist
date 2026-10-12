@@ -598,6 +598,13 @@ update_script() {
     trap 'rm -f -- "$download"' EXIT
     curl -fsSL https://raw.githubusercontent.com/hicocos/boxlist/main/install.sh -o "$download"
     bash -n "$download"
+    if cmp -s -- "$download" "$install_dir/boxlist.sh"; then
+        rm -f -- "$download"
+        trap - EXIT
+        install_manager_commands
+        printf '管理脚本已是最新，无需更新。\n'
+        return
+    fi
     chmod 700 "$download"
     mv -- "$download" "$install_dir/boxlist.sh"
     trap - EXIT
@@ -742,7 +749,7 @@ case "$command_name" in
         ;;
     update)
         printf '更新将保留数据卷与配置；请确保已完成备份。\n'
-        old_id=$(compose ps -q boxlist)
+        old_id=$(compose ps -aq boxlist)
         old_image=
         [[ -z $old_id ]] || old_image=$(docker inspect --format '{{.Image}}' "$old_id")
         compose pull
@@ -750,7 +757,13 @@ case "$command_name" in
         ready
         new_id=$(compose ps -q boxlist)
         new_image=$(docker inspect --format '{{.Image}}' "$new_id")
-        if [[ $old_image == "$new_image" ]]; then printf '当前已是最新镜像，无需更新程序。\n'; else printf 'BoxList 更新完成！\n'; fi
+        if [[ -z $old_image ]]; then
+            printf 'BoxList 容器已创建并启动；无旧容器镜像可比较。\n'
+        elif [[ $old_image == "$new_image" ]]; then
+            printf '当前已是最新镜像，无需更新程序。\n'
+        else
+            printf 'BoxList 更新完成！\n'
+        fi
         printf '当前版本：%s\n' "$(display_version "$new_id")" ;;
     start) compose up -d --no-build; ready ;;
     stop) compose stop; printf 'BoxList 已停止\n' ;;

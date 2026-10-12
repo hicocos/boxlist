@@ -1,25 +1,37 @@
+import type { DerivativeMedia, MediaSource } from "../../../utils/derivative-policy"
+import {
+  isSlowReaderConnection,
+  LARGE_READER_IMAGE,
+  readerImageTimeout,
+  type ReaderConnection,
+} from "../../reader/reader-loading-policy"
+
 export interface LoadedImage {
   src: string
   width: number
   height: number
 }
 
-export const IMAGE_TIMEOUT = 30_000
+export interface ImageTask {
+  promise: Promise<LoadedImage>
+  cancel: () => void
+}
 
 export class ImageRequestError extends Error {
-  constructor(readonly reason: "error" | "timeout" | "cancelled") {
+  readonly reason: "error" | "timeout" | "cancelled"
+  constructor(reason: "error" | "timeout" | "cancelled") {
     super(`Image request ${reason}`)
+    this.reason = reason
   }
 }
 
 /** A request owns its handlers and deadline, even if the browser never responds. */
 export function requestImage(
   image: HTMLImageElement,
-  url: string,
-  timeout = IMAGE_TIMEOUT,
-) {
+  source: MediaSource,
+  connection?: ReaderConnection,
+): ImageTask {
   let settled = false
-  let timer: ReturnType<typeof setTimeout> | undefined
   let resolve!: (value: LoadedImage) => void
   let reject!: (reason: ImageRequestError) => void
   const promise = new Promise<LoadedImage>((yes, no) => {
@@ -37,7 +49,7 @@ export function requestImage(
       reject(new ImageRequestError(reason))
     } else {
       resolve({
-        src: url,
+        src: source.url,
         width: image.naturalWidth,
         height: image.naturalHeight,
       })
@@ -51,33 +63,71 @@ export function requestImage(
   }
   image.onerror = () => finish("error")
   image.decoding = "async"
-  timer = setTimeout(() => finish("timeout"), timeout)
+  const timer = setTimeout(() => finish("timeout"), readerImageTimeout(source.bytes, connection))
   try {
-    image.src = url
+    image.src = source.url
   } catch {
     finish("error")
   }
   return { promise, cancel: () => finish("cancelled") }
 }
 
+const activeMedia = new WeakMap<DerivativeMedia, Promise<LoadedImage>>()
+
+/** Recover only failed previews through the permission policy, never retry a timeout. */
+export function requestMedia(
+  image: HTMLImageElement,
+  media: DerivativeMedia,
+  connection?: ReaderConnection,
+): ImageTask {
+  const controller = new AbortController()
+  let task: ImageTask | undefined
+  const previous = activeMedia.get(media)
+  const promise = (async () => {
+    // A cancelled status refresh must release its permission gate before a revisit.
+    if (previous) await previous.catch(() => {})
+    let source = media.source()
+    while (source && !controller.signal.aborted) {
+      task = requestImage(image, source, connection)
+      try { return await task.promise }
+      catch (error) {
+        if (!(error instanceof ImageRequestError) || error.reason !== "error") throw error
+        source = await media.recover(source.url, controller.signal)
+      }
+    }
+    throw new ImageRequestError(controller.signal.aborted ? "cancelled" : "error")
+  })()
+  activeMedia.set(media, promise)
+  const release = () => {
+    if (activeMedia.get(media) === promise) activeMedia.delete(media)
+  }
+  void promise.then(release, release)
+  return {
+    promise,
+    cancel() { controller.abort(); task?.cancel() },
+  }
+}
+
 /** Metadata only: keep no decoded images, dedupe requests, release every lease. */
 export function createImageRequests(
   makeImage: () => HTMLImageElement = () => new Image(),
-  timeout = IMAGE_TIMEOUT,
 ) {
   const cache = new Map<string, LoadedImage>()
-  const pending = new Map<string, ReturnType<typeof requestImage>>()
+  const pending = new Map<string, ImageTask>()
   let disposed = false
   const cancel = (url: string) => {
     const task = pending.get(url)
     pending.delete(url)
     task?.cancel()
   }
-  const load = (url: string): Promise<LoadedImage> => {
+  const load = (source: MediaSource, connection?: ReaderConnection): Promise<LoadedImage> => {
+    const url = source.url
     if (disposed) return Promise.reject(new ImageRequestError("cancelled"))
     if (cache.has(url)) return Promise.resolve(cache.get(url)!)
     if (pending.has(url)) return pending.get(url)!.promise
-    const task = requestImage(makeImage(), url, timeout)
+    const image = makeImage()
+    image.fetchPriority = "low"
+    const task = requestImage(image, source, connection)
     pending.set(url, task)
     void task.promise.then(
       (data) => {
@@ -113,14 +163,16 @@ export function createImageRequests(
   }
 }
 
+/** Only the next small preview may warm, and only after the visible image settles. */
 export function neighbourIndices(
   index: number,
-  list: { size: number }[],
-  connection?: { saveData?: boolean; effectiveType?: string },
+  list: (MediaSource | undefined)[],
+  connection?: ReaderConnection,
+  currentComplete = false,
 ) {
-  if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType || ""))
-    return []
-  return [index - 1, index + 1].filter(
-    (i) => list[i] && list[i].size <= 20 * 1024 * 1024,
-  )
+  if (!currentComplete || isSlowReaderConnection(connection)) return []
+  const next = list[index + 1]
+  return next?.kind === "preview" && next.bytes > 0 && next.bytes < LARGE_READER_IMAGE
+    ? [index + 1]
+    : []
 }

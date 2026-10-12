@@ -1,5 +1,19 @@
 {
   "expires": "Expiration time",
+  "expiration": {
+    "never": "Never",
+    "hour": "1 hour",
+    "day": "1 day",
+    "week": "7 days",
+    "month": "30 days",
+    "custom": "Custom",
+    "never_hint": "This share will not expire automatically.",
+    "create_hint": "Expires {{duration}} after you click Add.",
+    "update_hint": "Expires {{duration}} after you click Save.",
+    "confirm_hint": "Expires {{duration}} after you click Confirm.",
+    "timezone": "Expiration uses your device time zone",
+    "future_required": "Choose a future date and time."
+  },
   "id": "ID",
   "id_placeholder": "Custom ID (optional, leave empty for random)",
   "accessed": "Access count",

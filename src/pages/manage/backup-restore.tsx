@@ -23,7 +23,7 @@ import {
   ShareInfo,
 } from "~/types"
 import { createSignal, For } from "solid-js"
-import crypto from "crypto-js"
+import { encodeBackup, decodeBackup } from "./backup-format"
 
 interface Data {
   encrypted: string
@@ -61,6 +61,8 @@ const Log = (props: { msg: string; type: LogType }) => {
 const BackupRestore = () => {
   const [override, setOverride] = createSignal(false)
   const [password, setPassword] = createSignal("")
+  const [encoding, setEncoding] = createSignal(false)
+  const [decoding, setDecoding] = createSignal(false)
   const t = useT()
   useManageTitle("manage.sidemenu.backup-restore")
   let logRef!: HTMLDivElement
@@ -98,31 +100,13 @@ const BackupRestore = () => {
   )
   const backupLoading = () => {
     return (
+      encoding() ||
       getSettingsLoading() ||
       getUsersLoading() ||
       getMetasLoading() ||
       getStoragesLoading() ||
       getSharesLoading() ||
       getDerivativesLoading()
-    )
-  }
-  function encrypt(data: any, key: string): string {
-    if (key == "") return data
-    const encJson = crypto.AES.encrypt(JSON.stringify(data), key).toString()
-    return crypto.enc.Base64.stringify(crypto.enc.Utf8.parse(encJson))
-  }
-
-  function decrypt(
-    data: any,
-    key: string,
-    raw: boolean,
-    encrypted: boolean,
-  ): string {
-    if (!encrypted) return data
-    const decData = crypto.enc.Base64.parse(data).toString(crypto.enc.Utf8)
-    if (raw) return crypto.AES.decrypt(decData, key).toString(crypto.enc.Utf8)
-    return JSON.parse(
-      crypto.AES.decrypt(decData, key).toString(crypto.enc.Utf8),
     )
   }
 
@@ -136,7 +120,6 @@ const BackupRestore = () => {
       metas: [],
       shares: [],
     }
-    if (password() != "") allData.encrypted = encrypt("encrypted", password())
     for (const item of [
       { name: "settings", fn: getSettings, page: false },
       { name: "users", fn: getUsers, page: true },
@@ -154,23 +137,7 @@ const BackupRestore = () => {
             }),
             "success",
           )
-          if (item.page) {
-            for (let i = 0; i < data.content.length; i++) {
-              const obj = data.content[i]
-              for (const key in obj) {
-                obj[key] = encrypt(obj[key], password())
-              }
-            }
-            allData[item.name] = data.content
-          } else {
-            for (let i = 0; i < data.length; i++) {
-              const obj = data[i]
-              for (const key in obj) {
-                obj[key] = encrypt(obj[key], password())
-              }
-            }
-            allData[item.name] = data
-          }
+          allData[item.name] = item.page ? data.content : data
         },
         (msg) => {
           appendLog(
@@ -190,12 +157,18 @@ const BackupRestore = () => {
       appendLog(t("br.failed_backup_item", { item: t("br.derivatives") }) + ":" + previews.message, "error")
       return false
     }
-    allData.derivatives = encrypt(previews.data, password())
+    allData.derivatives = previews.data
+    setEncoding(true)
+    try {
+      const result = await encodeBackup(allData, password())
+      download("boxlist_backup_" + new Date().toISOString().replace(/:/g, "-") + result.extension, result.blob)
+    } catch (error) {
+      appendLog(String(error), "error")
+      return false
+    } finally {
+      setEncoding(false)
+    }
     appendLog(t("br.success_backup_item", { item: t("br.derivatives") }), "success")
-    download(
-      "boxlist_backup_" + new Date().toLocaleString() + ".json",
-      allData,
-    )
     appendLog(t("br.finish_backup"), "info")
     return true
   }
@@ -284,6 +257,7 @@ const BackupRestore = () => {
   }
   const restoreLoading = () => {
     return (
+      decoding() ||
       addSettingsLoading() ||
       addUserLoading() ||
       addStorageLoading() ||
@@ -300,7 +274,7 @@ const BackupRestore = () => {
     appendLog(t("br.start_restore"), "info")
     const file = document.createElement("input")
     file.type = "file"
-    file.accept = "application/json"
+    file.accept = ".json,.gz,application/json,application/gzip,application/x-gzip"
     file.onchange = async (e) => {
       const files = (e.target as HTMLInputElement).files
       if (!files || files.length === 0) {
@@ -308,29 +282,9 @@ const BackupRestore = () => {
         return
       }
       const file = files[0]
-      const reader = new FileReader()
-      reader.onload = async () => {
-        const data: Data = JSON.parse(reader.result as string)
-        const encrypted = Boolean(data.encrypted)
-        if (encrypted)
-          if (
-            decrypt(data.encrypted, password(), true, true) !== '"encrypted"'
-          ) {
-            appendLog(t("br.wrong_encrypt_password"), "error")
-            return
-          }
-        for (const obj of [data.settings, data.users, data.storages, data.metas, data.shares]) {
-          if (!obj) continue
-          for (let a = 0; a < obj.length; a++) {
-            const obj1 = obj[a] as unknown as Record<string, unknown>
-            for (const key in obj1) {
-              obj1[key] = decrypt(obj1[key], password(), false, encrypted)
-            }
-          }
-        }
-        if (data.derivatives !== undefined) {
-          data.derivatives = decrypt(data.derivatives, password(), false, encrypted)
-        }
+      setDecoding(true)
+      try {
+        const data: Data = await decodeBackup(file, password())
         if (override() && !(await backup())) return
         data.settings &&
           handleRespWithoutNotify(
@@ -462,8 +416,11 @@ const BackupRestore = () => {
           if (resp.code !== 200) return
         }
         appendLog(t("br.finish_restore"), "info")
+      } catch (error) {
+        appendLog(String(error), "error")
+      } finally {
+        setDecoding(false)
       }
-      reader.readAsText(file)
     }
     file.click()
   }
@@ -525,10 +482,7 @@ const BackupRestore = () => {
   )
 }
 
-function download(filename: string, data: any) {
-  const file = new Blob([JSON.stringify(data, null, 2)], {
-    type: "application/json",
-  })
+function download(filename: string, file: Blob) {
   const url = URL.createObjectURL(file)
   const a = document.createElement("a")
   a.href = url

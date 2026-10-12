@@ -80,7 +80,7 @@ func InitConfig() {
 			log.Fatalf("load config error: %+v", err)
 		}
 		LastLaunchedVersion = conf.Conf.LastLaunchedVersion
-		if strings.HasPrefix(conf.Version, "v") || LastLaunchedVersion == "" {
+		if strings.HasPrefix(conf.Version, "boxlist-v") || strings.HasPrefix(conf.Version, "v") || LastLaunchedVersion == "" {
 			conf.Conf.LastLaunchedVersion = conf.Version
 		}
 		// update config.json struct

@@ -1,5 +1,19 @@
 {
   "expires": "过期时间",
+  "expiration": {
+    "never": "永不过期",
+    "hour": "1 小时",
+    "day": "1 天",
+    "week": "7 天",
+    "month": "30 天",
+    "custom": "自定义",
+    "never_hint": "此分享不会自动过期。",
+    "create_hint": "创建后 {{duration}}过期，从点击添加时起算。",
+    "update_hint": "保存后 {{duration}}过期，从点击保存时起算。",
+    "confirm_hint": "创建后 {{duration}}过期，从点击确定时起算。",
+    "timezone": "按当前设备时区设置到期时间",
+    "future_required": "请选择未来的日期和时间。"
+  },
   "id": "ID",
   "id_placeholder": "自定义ID（可选，留空则随机生成）",
   "accessed": "访问次数",

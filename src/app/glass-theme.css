@@ -126,7 +126,6 @@ html.openlist-glass-home
     .body > div:has(> .folder-tree-box),
     body > div > div:has(> .hope-list),
     .left-toolbar,
-    .toolbar-toggle,
     .center-toolbar > div > .hope-stack,
     .hope-modal__content,
     .hope-drawer__content,
@@ -328,8 +327,7 @@ html.openlist-glass-home .folder-tree-box .hope-text:hover {
 }
 
 /* BackTop now uses a native button with its own semantic class. */
-html.openlist-glass-home .back-top-button:hover,
-html.openlist-glass-home .toolbar-toggle:hover {
+html.openlist-glass-home .back-top-button:hover {
   background-color: var(--glass-bg-hover) !important;
   box-shadow: var(--glass-shadow-hover) !important;
 }

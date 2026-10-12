@@ -10,6 +10,8 @@
 
 </div>
 
+当前版本：[boxlist-v1.1](https://github.com/hicocos/boxlist/releases/tag/boxlist-v1.1)。后端与 WebVersion 均为 `boxlist-v1.1`，固定版本镜像为 `ghcr.io/hicocos/boxlist:boxlist-v1.1`。
+
 ## 功能
 
 - [x] 多存储接入：本地存储、网盘、对象存储、WebDAV、FTP、SFTP、SMB
@@ -33,6 +35,8 @@ curl -fsSL https://raw.githubusercontent.com/hicocos/boxlist/main/install.sh -o 
 运行 `sudo boxlist` 或 `sudo boxlist-manager` 打开管理菜单，使用 `sudo boxlist update` 更新。
 
 其他部署方式见[部署指南](DEPLOYMENT.md)。
+
+首次部署时，「设置 → 样式」中的「图标」和「网站图标」默认均为 `https://mikupan.com/f/rGLVSK/boxlist-logo.png`，可在管理页自行修改。
 
 管理页新生成或重置的令牌使用 `boxlist-` 前缀；已有令牌保持有效，不自动改写。如需更换旧前缀，请重置令牌并同步更新使用它的客户端。网页下载的备份文件名为 `boxlist_backup_<日期时间>.json`。
 

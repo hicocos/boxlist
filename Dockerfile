@@ -26,13 +26,13 @@ COPY backend/ ./
 # Never fetch another frontend or run upstream build.sh: embed THIS repository's UI.
 RUN rm -rf public/dist
 COPY --from=frontend /src/dist/ ./public/dist/
-ARG VERSION=v1.0
+ARG VERSION=boxlist-v1.1
 ARG SOURCE_COMMIT=unknown
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
     go build -trimpath -tags=jsoniter -ldflags="-s -w -X github.com/OpenListTeam/OpenList/v4/internal/conf.Version=${VERSION} -X github.com/OpenListTeam/OpenList/v4/internal/conf.WebVersion=${VERSION} -X github.com/OpenListTeam/OpenList/v4/internal/conf.GitCommit=${SOURCE_COMMIT}" -o /out/openlist .
 
 FROM ${RUNTIME_IMAGE} AS runtime
-ARG VERSION=v1.0
+ARG VERSION=boxlist-v1.1
 ARG SOURCE_COMMIT=unknown
 LABEL org.opencontainers.image.title="boxlist" \
       org.opencontainers.image.source="https://github.com/hicocos/boxlist" \

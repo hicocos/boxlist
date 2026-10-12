@@ -1,7 +1,6 @@
 import { useFetch, useRouter, useT, useUtil } from "~/hooks"
 import {
   bus,
-  getExpireDate,
   handleResp,
   makeTemplateData,
   matchTemplate,
@@ -38,6 +37,7 @@ import { createStore } from "solid-js/store"
 import { getSetting, me, selectedObjs } from "~/store"
 import { TbRefresh } from "solid-icons/tb"
 import { SelectOptions, MultiPathInput } from "~/components"
+import { createShareExpiration, ShareExpiration } from "~/components/ShareExpiration"
 
 export const Share = () => {
   const t = useT()
@@ -47,8 +47,7 @@ export const Share = () => {
     if (name === "share") {
       batch(() => {
         setLink("")
-        setExpireString("")
-        setExpireValid(true)
+        expiration.reset()
         const paths = selectedObjs().map((obj) => {
           const split =
             pathname().endsWith("/") || obj.name.startsWith("/") ? "" : "/"
@@ -76,8 +75,7 @@ export const Share = () => {
   })
   const { isOpen, onOpen, onClose } = createDisclosure()
   const { copy } = useUtil()
-  const [expireString, setExpireString] = createSignal("")
-  const [expireValid, setExpireValid] = createSignal(true)
+  const expiration = createShareExpiration()
   const [share, setShare] = createStore<ShareType>({} as ShareType)
   const [okLoading, ok] = useFetch((): PResp<ShareInfo> => {
     return r.post(`/share/create`, share)
@@ -230,28 +228,7 @@ export const Share = () => {
                     setShare("max_accessed", parseInt(e.currentTarget.value))
                   }}
                 />
-                <Text size="sm">{t("shares.expires")}</Text>
-                <Input
-                  size="sm"
-                  invalid={!expireValid()}
-                  value={expireString()}
-                  placeholder="yyyy-MM-dd HH:mm:ss or +1w1d1H1m1s1ms"
-                  onInput={(e) => {
-                    setExpireString(e.currentTarget.value)
-                    if (e.currentTarget.value === "") {
-                      setExpireValid(true)
-                      setShare("expires", null)
-                      return
-                    }
-                    const date = getExpireDate(e.currentTarget.value)
-                    if (isNaN(date.getTime())) {
-                      setExpireValid(false)
-                    } else {
-                      setExpireValid(true)
-                      setShare("expires", date.toISOString())
-                    }
-                  }}
-                />
+                <ShareExpiration state={expiration} action="confirm" />
                 <Text size="sm">{t("shares.readme")}</Text>
                 <Textarea
                   size="sm"
@@ -276,9 +253,12 @@ export const Share = () => {
               </Button>
               <Button
                 colorScheme="info"
-                disabled={!expireValid()}
+                disabled={expiration.error()}
                 loading={okLoading()}
                 onClick={async () => {
+                  const expires = expiration.resolve()
+                  if (expires === undefined) return
+                  setShare("expires", expires)
                   const resp = await ok()
                   handleResp(resp, (data) => {
                     const templateData = makeTemplateData(data, {

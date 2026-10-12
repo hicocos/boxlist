@@ -40,6 +40,10 @@ func compareVersion(majorA, minorA, patchNumA, majorB, minorB, patchNumB int) bo
 }
 
 func InitUpgradePatch() {
+	// BoxList releases do not share the upstream v4 migration version sequence.
+	if strings.HasPrefix(conf.Version, "boxlist-v") {
+		return
+	}
 	if !strings.HasPrefix(conf.Version, "v") {
 		for _, vp := range patch.UpgradePatches {
 			for i, p := range vp.Patches {

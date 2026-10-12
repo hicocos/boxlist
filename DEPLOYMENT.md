@@ -52,6 +52,8 @@ sudo bash install-boxlist.sh install --install-docker
 | `sudo boxlist script-update` | 更新管理脚本 |
 | `sudo boxlist uninstall` | 确认后彻底删除容器、网络、应用数据卷、安装目录及对应管理命令 |
 
+更新提示按实际变化区分：`update` 会比较更新前后的容器镜像 ID（包含已停止的旧容器）；镜像相同提示“当前已是最新镜像，无需更新程序”，镜像变化且服务就绪后才提示“BoxList 更新完成”。若旧容器不存在，则提示容器已创建并启动、无旧容器镜像可比较。`script-update` 会比较下载内容与已安装的管理脚本，内容相同提示“管理脚本已是最新，无需更新”，不替换脚本文件。
+
 卸载不可恢复，安装目录中的备份也会删除，请先将需要保留的备份移至其他位置。`--yes` 可用于无交互确认彻底卸载；暂时不用请选择 `stop`。外部原文件和远端存储不受影响。残留数据卷可在新安装时选择保留或删除；已有运行实例不会被接管。
 
 自定义安装示例（适合同机反向代理）：
@@ -79,6 +81,12 @@ docker compose logs boxlist
 服务名和容器名均为 `boxlist`，默认镜像为 `ghcr.io/hicocos/boxlist:latest`。首次创建管理员时密码只输出到控制台，之后数据库保存的是哈希；不要把启动日志作为公开故障报告上传。
 
 全新安装默认禁用访客，未登录访问首页会进入登录页。管理员登录后，尚未挂载存储的根目录正常显示空目录和“转到存储”引导，不应出现目录加载失败或 API 500；添加存储后首页显示挂载目录。一键脚本使用同一 Docker 镜像，因此两种安装方式行为一致。此处理仅适用于无存储的虚拟根目录，不会隐藏已挂载存储的读取故障或绕过访问权限。
+
+后台「存储」列表支持直接修改序号：卡片和表格布局均可在序号输入框旁点击「保存」，或按回车提交；保存后刷新列表。序号必须为整数，数值越小越靠前。新增和编辑页面不再显示序号输入框，编辑其他配置时保留已有序号。列表控件沿用后台主题，适配浅色、深色和手机布局。
+
+前台竖向工具栏采用紧凑水平留白，滚动区不重复叠加左右内边距；手机按钮保留 44px 点击区域，键盘焦点轮廓在滚动区内侧显示，避免裁切。
+游客不显示竖向工具栏的刷新按钮，登录用户仍按原权限使用刷新。展开和收起按钮不显示悬浮或原生标题提示，保留无障碍名称和展开状态。
+工具栏收起时仅显示更多图标，不显示毛玻璃底框；展开后显示面板。展开/收起按钮点击不绘制外围焦点线，键盘焦点使用图标发光提示。
 
 访问服务器的 5244 端口，登录后修改密码、添加存储并检查访客/用户权限。若丢失密码，可停止服务后通过同一数据卷运行密码重置命令，避免另起一个服务进程：
 
@@ -202,15 +210,15 @@ cd boxlist
 docker compose -f compose.yaml -f compose.build.yaml up -d --build
 ```
 
-构建覆盖文件使用 `boxlist:local`，禁止拉取同名远端镜像。`Dockerfile`、`Dockerfile.deploy` 及两个源码构建 Compose 配置的默认程序版本均为 `v1.0`；Compose 可通过 `BOXLIST_VERSION` 指定版本，通过 `SOURCE_COMMIT` 单独记录提交 ID（未提供时为 `unknown`，不会冒用固定历史提交）。例如在构建命令前设置 `SOURCE_COMMIT="$(git rev-parse HEAD)"`；这只记录检出的提交，不代表工作区没有本地修改。更新源码后重新执行相同构建命令；后续日志、停止、管理员命令等操作也使用同样的两个 `-f` 参数。不要只运行默认 `docker compose up`，否则会切换回 GHCR 镜像。
+构建覆盖文件使用 `boxlist:local`，禁止拉取同名远端镜像。`Dockerfile`、`Dockerfile.deploy` 及两个源码构建 Compose 配置的默认程序版本均为 `boxlist-v1.1`；Compose 可通过 `BOXLIST_VERSION` 指定版本，通过 `SOURCE_COMMIT` 单独记录提交 ID（未提供时为 `unknown`，不会冒用固定历史提交）。例如在构建命令前设置 `SOURCE_COMMIT="$(git rev-parse HEAD)"`；这只记录检出的提交，不代表工作区没有本地修改。更新源码后重新执行相同构建命令；后续日志、停止、管理员命令等操作也使用同样的两个 `-f` 参数。不要只运行默认 `docker compose up`，否则会切换回 GHCR 镜像。
 
 ### 镜像发布
 
-[`publish-image.yml`](.github/workflows/publish-image.yml) 在推送 `main`、推送 `v*` 标签或手动运行时构建镜像。两个原生 GitHub runner 分别构建 AMD64 和 ARM64，使用按架构隔离的 BuildKit 缓存，启动临时容器检查首页和公开设置 API；两种架构均通过后才发布多架构标签。
+[`publish-image.yml`](.github/workflows/publish-image.yml) 在推送 `main`、推送 `boxlist-v*` 标签或手动运行时构建镜像。两个原生 GitHub runner 分别构建 AMD64 和 ARM64，使用按架构隔离的 BuildKit 缓存，启动临时容器检查首页和公开设置 API；两种架构均通过后才发布多架构标签。
 
 - `main` 发布 `latest` 和 `sha-完整提交SHA`。
-- `v*` 标签发布同名镜像标签及提交标签，不覆盖 `latest`；手动运行根据所选分支/标签遵循同样规则。
-- 镜像标签与程序版本分开：分支构建从 `package.json` 生成程序版本（当前 `1.0.0` → `v1.0`），`v*` 标签构建使用标签名；`sha-…` 仅作为定位提交的镜像标签。构建参数 `VERSION` 同时写入后端 `Version`、`WebVersion` 和 OCI `org.opencontainers.image.version`，`SOURCE_COMMIT` 单独写入 `GitCommit` 和 OCI `org.opencontainers.image.revision`。
+- `boxlist-v*` 标签发布同名镜像标签及提交标签，不覆盖 `latest`；手动运行根据所选分支/标签遵循同样规则。
+- 镜像标签与程序版本分开：分支构建从 `package.json` 生成程序版本（当前 `1.1.0` → `boxlist-v1.1`），`boxlist-v*` 标签构建使用标签名；`sha-…` 仅作为定位提交的镜像标签。构建参数 `VERSION` 同时写入后端 `Version`、`WebVersion` 和 OCI `org.opencontainers.image.version`，`SOURCE_COMMIT` 单独写入 `GitCommit` 和 OCI `org.opencontainers.image.revision`。
 - 工作流使用仓库的 `GITHUB_TOKEN`，需要 Actions 可运行且允许 `packages: write`，无需另存个人令牌。
 - GHCR 新建包可能默认为私有。首次发布后，在 GitHub 的 `Packages → boxlist → Package settings` 中将可见性设为 Public，才能让普通用户免登录拉取。公开源码仓库不自动保证容器包公开。
 - 首次发布完成并确认匿名拉取成功后再使用镜像部署；若提示 `denied`，检查包可见性与访问权限；若提示 `manifest unknown`，检查工作流是否成功及标签是否存在。源码构建可在发布前使用。
@@ -220,7 +228,9 @@ docker compose -f compose.yaml -f compose.build.yaml up -d --build
 
 一键安装会先执行 `docker pull`，脚本更新会执行 `docker compose pull`；手动 Docker 部署也应先拉取再执行 `up -d`，仅 `restart` 不会更新镜像。拉取会重新解析远端标签，已存在的相同内容层可复用；源码或上述构建参数变化会使对应 BuildKit 构建步骤重新执行，无需常规禁用缓存。
 
-**仓库修复不会改写已发布镜像。** 只有包含修复的 `main` 多架构发布成功，默认 `latest` 安装才会获得修复；仅发布 `v*` 标签不会推进 `latest`。固定旧标签、提交标签或 digest 的实例仍需主动选择包含修复的镜像。若远端标签尚未更新，重复拉取或重建容器仍是旧程序。一键脚本按实际镜像的 OCI 版本标签显示版本：旧标签中的 `sha-…` 原样显示，缺失版本显示“未知”，不将旧镜像伪装为 `v1.0`。可用 `docker compose exec boxlist /opt/openlist/openlist version` 核对运行中二进制的 `Version`、`WebVersion` 与 `Commit ID`；使用自定义 Compose 文件时保留原来的 `-f` 参数。后端启动会用编译版本刷新公开设置中的 `version`，无需删除数据卷来更新版本。
+**仓库修复不会改写已发布镜像。** 只有包含修复的 `main` 多架构发布成功，默认 `latest` 安装才会获得修复；仅发布 `boxlist-v*` 标签不会推进 `latest`。固定旧标签、提交标签或 digest 的实例仍需主动选择包含修复的镜像。若远端标签尚未更新，重复拉取或重建容器仍是旧程序。一键脚本按实际镜像的 OCI 版本标签显示版本：旧标签中的 `sha-…` 原样显示，缺失版本显示“未知”，不会伪装为当前版本。可用 `docker compose exec boxlist /opt/openlist/openlist version` 核对运行中二进制的 `Version`、`WebVersion` 与 `Commit ID`；使用自定义 Compose 文件时保留原来的 `-f` 参数。后端启动会用编译版本刷新公开设置中的 `version`，无需删除数据卷来更新版本。
+
+`boxlist-v*` 为独立发布序列：启动时记录完整版本，不按上游 `v4.x` 版本号执行升级补丁，也不会被视为开发版而每次重复执行上游补丁。
 
 ## 备份与恢复
 
@@ -236,6 +246,10 @@ docker compose -f compose.yaml -f compose.build.yaml up -d --build
 **网页“备份与还原”不替代完整卷备份。** 其中预览图部分只导出 S3 配置、可迁移凭据和索引，不包含本地预览图、任务、规则或任何图片文件。原始数据库备份必须同时保留 `derivatives/s3.key`；丢失它无法解密原数据库中的 S3 凭据。网页备份含可迁移凭据，应设置备份密码并妥善保存。详情见 [S3 备份说明](doc/derivative-s3.md#备份与恢复)。
 
 ## 功能边界与使用提示
+
+### 分享有效期
+
+后台「分享」新增和编辑页面、前台文件菜单及工具栏的分享弹窗共用有效期控件，支持永不过期、1 小时、1 天、7 天、30 天以及自定义日期时间。新增默认永不过期；快捷期限从点击添加、保存或确认时起算。自定义时间按当前设备时区输入，必须选择未来时间。编辑已有分享而未调整有效期时，保留原到期时间，不会自动续期。重新打开前台分享弹窗时恢复永不过期，不沿用上一次选择。
 
 ### 预览图
 

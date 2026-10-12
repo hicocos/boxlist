@@ -5,6 +5,24 @@
   overflow: hidden;
   background: var(--hope-colors-neutral2, #f5f6f8);
 }
+/* The enclosing file panel already owns the theme's glass tint and blur. */
+html.openlist-glass-home .image-lite {
+  background: transparent;
+  color: var(--glass-text);
+}
+html.openlist-glass-home .image-lite-toolbar button,
+html.openlist-glass-home .image-lite-hint a,
+html.openlist-glass-home .image-lite-error button,
+html.openlist-glass-home .image-lite-error a {
+  color: var(--glass-link);
+}
+html.openlist-glass-home .image-lite-toolbar button:not(:disabled):hover {
+  background: var(--glass-field);
+}
+html.openlist-glass-home .image-lite-hint {
+  color: var(--glass-muted);
+  opacity: 1;
+}
 .image-lite-toolbar {
   display: flex;
   align-items: center;

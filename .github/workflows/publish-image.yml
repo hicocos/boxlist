@@ -3,7 +3,7 @@ name: Publish image
 on:
   push:
     branches: [main]
-    tags: ['v*']
+    tags: ['boxlist-v*']
   # GitHub's ref selector chooses the branch or tag to build.
   workflow_dispatch:
 
@@ -42,9 +42,9 @@ jobs:
         run: |
           image="ghcr.io/${REPOSITORY,,}"
           commit="$(git rev-parse HEAD)"
-          version="v$(jq -r '.version | sub("\\.0$"; "")' package.json)"
+          version="boxlist-v$(jq -r '.version | sub("\\.0$"; "")' package.json)"
           tags=("${image}:sha-${commit}")
-          if [[ "$REF" == refs/tags/v* ]]; then
+          if [[ "$REF" == refs/tags/boxlist-v* ]]; then
             version="$REF_NAME"
             tags+=("${image}:${version}")
           elif [[ "$REF" == refs/heads/main ]]; then

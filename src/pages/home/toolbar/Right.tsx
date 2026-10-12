@@ -77,7 +77,7 @@ export const Right = () => {
           <RightIcon
             class="toolbar-toggle"
             as={CgMoreO}
-            tips="more"
+            hideTooltip
             aria-label={uxText("展开工具栏", "Expand toolbar", "展開工具列")}
             aria-expanded={false}
             aria-controls={actionsId}
@@ -91,6 +91,7 @@ export const Right = () => {
         <VStack
           class="left-toolbar"
           p="$1"
+          px="$0_5"
           rounded="$lg"
           spacing="$1"
           // shadow="0px 10px 30px -5px rgba(0, 0, 0, 0.3)"
@@ -124,13 +125,13 @@ export const Right = () => {
             role="group"
             aria-label={uxText("文件工具", "File tools", "檔案工具")}
           >
-            <Show when={isFolder() && !isShare()}>
+            <Show when={isFolder() && !isShare() && !UserMethods.is_guest(me())}>
               <RightIcon
                 class="toolbar-refresh"
                 as={RiSystemRefreshLine}
                 tips="refresh"
                 onClick={() => {
-                  // Read-only visitors may re-fetch; force-refresh remains gated.
+                  // Force-refresh remains gated by write permissions.
                   refresh(
                     undefined,
                     !!(
@@ -282,7 +283,7 @@ export const Right = () => {
           </VStack>
           <RightIcon
             class="toolbar-collapse"
-            tips="more"
+            hideTooltip
             as={CgMoreO}
             aria-label={uxText("收起工具栏", "Collapse toolbar", "收合工具列")}
             aria-expanded={true}

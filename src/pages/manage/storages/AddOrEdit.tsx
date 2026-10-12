@@ -191,7 +191,11 @@ const AddOrEdit = () => {
       </VStack>
       <ResponsiveGrid>
         <Show when={drivers()[storage.driver]}>
-          <For each={drivers()[storage.driver].common}>
+          <For
+            each={drivers()[storage.driver].common.filter(
+              (item) => item.name !== "order",
+            )}
+          >
             {(item) => (
               <Item
                 {...runtimeItemProps(

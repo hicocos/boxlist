@@ -16,6 +16,7 @@ type ToolbarIconProps<C extends ElementType = "button"> = Omit<
   JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
     name?: string
     tips?: string
+    hideTooltip?: boolean
     icon?: IconTypes
   }
 
@@ -29,6 +30,7 @@ function ToolbarAction<C extends ElementType = "button">(
     "children",
     "name",
     "tips",
+    "hideTooltip",
     "variant",
     "class",
     "boxSize",
@@ -47,7 +49,7 @@ function ToolbarAction<C extends ElementType = "button">(
   const right = () => glyph.variant === "right"
   return (
     <Tooltip
-      disabled={right() && !glyph.tips && !props["aria-label"]}
+      disabled={glyph.hideTooltip || (right() && !glyph.tips && !props["aria-label"])}
       placement={right() ? "left" : "top"}
       withArrow
       label={label()}
@@ -65,7 +67,7 @@ function ToolbarAction<C extends ElementType = "button">(
         type="button"
         class={`toolbar-action toolbar-action--${glyph.variant}${glyph.name ? ` toolbar-${glyph.name}` : ""}${glyph.class ? ` ${glyph.class}` : ""}`}
         aria-label={label()}
-        title={props.title ?? label()}
+        title={glyph.hideTooltip ? undefined : props.title ?? label()}
         data-danger={
           glyph.name === "delete" || props.color === "$danger9"
             ? "true"
