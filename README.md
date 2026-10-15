@@ -10,8 +10,6 @@
 
 </div>
 
-当前源码版本：`boxlist-v1.2`。已发布版本见 [Releases](https://github.com/hicocos/boxlist/releases)。
-
 ## 功能
 
 - [x] 多存储接入：本地存储、网盘、对象存储、WebDAV、FTP、SFTP、SMB
