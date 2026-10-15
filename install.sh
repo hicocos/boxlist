@@ -40,6 +40,7 @@ usage() {
   --yes               确认彻底卸载（删除应用数据、安装目录及其中备份）
   --help              显示帮助
   --non-interactive   使用参数和默认值，不询问配置或进入管理菜单
+环境：BOXLIST_READY_TIMEOUT 为 API 就绪等待秒数（默认 300，正整数，最大 2147483647）。
 更新前请备份。修改安装目录中的 .env 可调整镜像、端口和站点地址。
 HELP
 }
@@ -160,7 +161,7 @@ prompt_site() {
 }
 display_version() {
     local value
-    value=$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$1")
+    value=$(timeout --signal=KILL 3 docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$1" 2>/dev/null) || { printf '未知（Docker 查询失败或超时）'; return 0; }
     case "$value" in
         unknown|'<no value>'|'') printf '未知' ;;
         *) printf '%s' "$value" ;;
@@ -284,6 +285,11 @@ fi
 [[ $command_name == install || $install_options == false ]] || fail '名称、端口、镜像等参数仅用于新安装；已有实例请修改 .env'
 [[ -z $existing_data || $existing_data == reuse || $existing_data == reset ]] || fail '--existing-data 只能是 reuse 或 reset'
 [[ -z $confirm_delete || $existing_data == reset ]] || fail '--confirm-delete 必须与 --existing-data reset 一起使用'
+ready_timeout=${BOXLIST_READY_TIMEOUT-300}
+case "$command_name" in
+    install|update|start|restart|configure|password|docker-password)
+        [[ $ready_timeout =~ ^[1-9][0-9]{0,9}$ ]] && (( ready_timeout <= 2147483647 )) || fail 'BOXLIST_READY_TIMEOUT 必须为 1–2147483647 的整数秒数' ;;
+esac
 
 command -v curl >/dev/null || fail '请先安装 curl'
 command -v flock >/dev/null || fail '请先安装 util-linux（flock）'
@@ -303,10 +309,11 @@ if ! command -v docker >/dev/null; then
     rm -f -- "$docker_installer"
     trap - EXIT
 fi
-docker info >/dev/null 2>&1 || fail '无法连接 Docker；请检查服务、权限或 Docker context'
-docker compose version >/dev/null 2>&1 || fail '请先安装 Docker Compose 插件（docker compose）'
+timeout --signal=KILL 5 docker info >/dev/null 2>&1 || fail 'Docker 不可用或响应超时；未执行启动操作。请手动检查 docker info、docker context show 及服务/权限（输出可能含敏感信息）'
+timeout --signal=KILL 5 docker compose version >/dev/null 2>&1 || fail 'Docker Compose 不可用或响应超时；请检查 docker compose version 并安装 Compose 插件'
 # Read daemon details, since a Docker context can point at a different host.
-case $(docker info --format '{{.OSType}}/{{.Architecture}}') in
+docker_platform=$(timeout --signal=KILL 5 docker info --format '{{.OSType}}/{{.Architecture}}' 2>/dev/null) || fail '无法读取 Docker 主机信息或查询超时；请检查 docker info 和 docker context show'
+case "$docker_platform" in
     linux/x86_64|linux/amd64|linux/aarch64|linux/arm64) ;;
     *) fail '镜像仅支持 Linux AMD64 / ARM64 Docker 主机' ;;
 esac
@@ -382,45 +389,152 @@ flock -n 9 || fail '另一个管理操作正在运行'
 compose() {
     # Persisted .env wins over unrelated caller environment variables.
     local files=(-f "$install_dir/compose.yaml")
+    local runner=()
+    if [[ -n ${compose_timeout:-} ]]; then runner=(timeout --signal=KILL "$compose_timeout"); fi
     if [[ -f $install_dir/compose.override.yaml ]]; then files+=(-f "$install_dir/compose.override.yaml"); fi
     if [[ -f $install_dir/compose.volume.yaml ]]; then files+=(-f "$install_dir/compose.volume.yaml"); fi
-    env -u BOXLIST_IMAGE -u BOXLIST_CONTAINER_NAME -u PORT -u BIND_ADDRESS -u SITE_URL \
+    "${runner[@]}" env -u BOXLIST_IMAGE -u BOXLIST_CONTAINER_NAME -u PORT -u BIND_ADDRESS -u SITE_URL \
         docker compose --project-directory "$install_dir" --env-file "$install_dir/.env" \
         --project-name "$instance" "${files[@]}" "$@"
 }
 check_owner() {
-    local id directory
+    local id ids named_id directory
+    ids=$(timeout --signal=KILL 3 docker ps -aq --filter "label=com.docker.compose.project=$instance" 2>/dev/null) || { readiness_diagnostics '无法检查 Compose 项目归属。'; return 1; }
+    named_id=$(timeout --signal=KILL 3 docker ps -aq --filter "name=^/${instance}$" 2>/dev/null) || { readiness_diagnostics '无法检查同名容器归属。'; return 1; }
+    if [[ -n $named_id ]]; then ids+=$'\n'"$named_id"; fi
     while IFS= read -r id; do
         [[ -n $id ]] || continue
-        directory=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$id")
-        [[ $directory == "$install_dir" ]] || fail "项目 $instance 属于其他目录：$directory"
-    done < <(docker ps -aq --filter "label=com.docker.compose.project=$instance")
-    if docker container inspect "$instance" >/dev/null 2>&1; then
-        directory=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$instance")
-        [[ $directory == "$install_dir" ]] || fail "容器 $instance 不属于本安装"
+        directory=$(timeout --signal=KILL 3 docker inspect --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$id" 2>/dev/null) || { readiness_diagnostics '无法读取容器归属。' "$id"; return 1; }
+        [[ $directory == "$install_dir" ]] || fail "容器 $id 不属于本安装（所属目录：$directory）"
+    done <<< "$ids"
+}
+compose_bounded() {
+    local compose_timeout=$1
+    shift
+    compose "$@"
+}
+readiness_diagnostics() {
+    local reason=$1 id=${2:-$instance} snapshot state line lower
+    printf '\n%s\n' "$reason" >&2
+    printf '就绪检查不会停止容器或删除数据；本结果不代表升级失败或数据丢失。\n' >&2
+    printf '\nCompose 容器列表（名称 / 状态 / 退出码）：\n' >&2
+    compose_bounded 3 ps -a --format '{{.Name}}\t{{.State}}\t{{.ExitCode}}' 2>/dev/null >&2 || printf '无法获取 compose ps（Docker/Compose 不可用或超时）。\n' >&2
+    if snapshot=$(timeout --signal=KILL 3 docker inspect --format '{{.State.Status}}|{{.State.ExitCode}}|{{.State.OOMKilled}}|{{.RestartCount}}' "$id" 2>/dev/null); then
+        local exit_code oom restarts
+        IFS='|' read -r state exit_code oom restarts <<< "$snapshot"
+        printf '容器状态=%s exit=%s OOMKilled=%s restart_count=%s\n' "$state" "$exit_code" "$oom" "$restarts" >&2
+        if [[ $state == running ]]; then
+            printf '容器仍在运行，可能仍在初始化；未停止容器，可稍后查看状态或重新执行 start 检查。\n' >&2
+        fi
+    else
+        printf '无法获取容器状态（Docker 不可用、容器不存在或 inspect 超时），不能据此判断容器已停止。\n' >&2
     fi
+    printf '\n最近 10 分钟日志（最多 60 行，每行最多 1000 字符；敏感关键词所在行隐藏）：\n' >&2
+    if ! timeout --signal=KILL 3 docker logs --since 10m --tail 60 "$id" 2>&1 | while IFS= read -r line || [[ -n $line ]]; do
+        lower=${line,,}
+        case "$lower" in
+            *password*|*passwd*|*token*|*secret*|*authorization*|*cookie*|*credential*|*environment*|*config*|*密码*|*口令*|*令牌*|*密钥*)
+                printf '[已隐藏可能含敏感信息的日志行]\n' >&2 ;;
+            *) printf '%s\n' "${line:0:1000}" >&2 ;;
+        esac
+    done; then
+        printf '日志读取失败或超时。\n' >&2
+    fi
+    printf '\n手动诊断（原始日志可能包含密码/token，请勿直接公开）：\n' >&2
+    printf '  bash %q status --dir %q\n' "$install_dir/boxlist.sh" "$install_dir" >&2
+    printf '  docker inspect --format %q %q\n' 'status={{.State.Status}} exit={{.State.ExitCode}} OOM={{.State.OOMKilled}} restarts={{.RestartCount}}' "$id" >&2
+    printf '  docker logs --since 10m --tail 60 %q\n' "$id" >&2
+    printf '  docker info\n  docker context show\n' >&2
+    return 0
+}
+compose_checked() {
+    if compose "$@"; then return 0; fi
+    readiness_diagnostics "Compose 操作未完成：$*；请依据容器状态诊断。"
+    return 1
+}
+ready_now() {
+    # Linux monotonic uptime avoids wall-clock adjustments during initialization.
+    local uptime rest
+    read -r uptime rest < /proc/uptime
+    printf '%s\n' "${uptime%%.*}"
 }
 ready() {
-    local id attempt
-    id=$(compose ps -q boxlist)
-    [[ -n $id ]] || fail '未找到运行中的 BoxList 容器'
-    # Probe inside the container; no dependency on host port/firewall/context.
-    for (( attempt=0; attempt<30; attempt++ )); do
-        # The inner shell expands status after reading the HTTP response.
-        # shellcheck disable=SC2016
-        if timeout 3 docker exec "$id" bash -c '
-            exec 3<>/dev/tcp/127.0.0.1/5244
-            printf "GET /api/public/settings HTTP/1.0\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3
-            IFS= read -r status <&3
-            [[ $status == *" 200 "* ]]
-        ' >/dev/null 2>&1; then
-            printf 'BoxList 已启动；端口映射：\n'
-            compose port boxlist 5244
-            return
+    local id snapshot state exit_code oom restarts first_restarts='' restart_since=-1
+    local started now elapsed remaining step next_progress=0 reason='' rc
+    started=$(ready_now)
+    step=$((ready_timeout < 3 ? ready_timeout : 3))
+    if ! id=$(compose_bounded "$step" ps -aq boxlist 2>/dev/null); then
+        readiness_diagnostics '无法查询 BoxList 容器（Docker/Compose 不可用或超时）。'
+        return 1
+    fi
+    if [[ -z $id || $id == *$'\n'* ]]; then
+        readiness_diagnostics '未找到唯一的 BoxList 容器，请检查 Compose 状态。'
+        return 1
+    fi
+    printf '等待 BoxList API 就绪，最多 %s 秒…\n' "$ready_timeout"
+    while true; do
+        now=$(ready_now)
+        elapsed=$((now-started))
+        remaining=$((ready_timeout-elapsed))
+        (( remaining > 0 )) || break
+        step=$((remaining < 3 ? remaining : 3))
+        if ! snapshot=$(timeout --signal=KILL "$step" docker inspect --format '{{.State.Status}}|{{.State.ExitCode}}|{{.State.OOMKilled}}|{{.RestartCount}}' "$id" 2>/dev/null); then
+            reason='等待中无法读取容器状态（Docker 不可用、容器被移除或 inspect 超时）。'
+            break
         fi
+        IFS='|' read -r state exit_code oom restarts <<< "$snapshot"
+        if [[ ! $restarts =~ ^[0-9]+$ ]]; then reason='Docker 返回了无法识别的容器状态。'; break; fi
+        [[ -n $first_restarts ]] || first_restarts=$restarts
+        now=$(ready_now)
+        elapsed=$((now-started))
+        if (( restarts-first_restarts >= 3 )); then
+            reason='等待期间容器已重启至少 3 次，停止等待，请检查崩溃原因。'; break
+        fi
+        case "$state" in
+            running) restart_since=-1 ;;
+            restarting)
+                if (( restart_since < 0 )); then restart_since=$now; fi
+                if (( now-restart_since >= 10 )); then
+                    reason='容器持续 restarting 至少 10 秒，停止等待，请检查崩溃原因。'; break
+                fi ;;
+            exited|dead|paused|created|removing)
+                reason="容器状态为 $state（exit=$exit_code，OOMKilled=$oom），停止等待。"; break ;;
+            *) reason="无法等待的容器状态：$state"; break ;;
+        esac
+        if [[ $oom == true && $state != running ]]; then reason='容器被 OOM 杀死，停止等待。'; break; fi
+        if (( elapsed >= next_progress )); then
+            printf '已等待 %s/%s 秒；容器=%s，重启次数=%s；API 尚未就绪。\n' "$elapsed" "$ready_timeout" "$state" "$restarts"
+            next_progress=$((elapsed+10))
+        fi
+        remaining=$((ready_timeout-elapsed))
+        (( remaining > 0 )) || break
+        if [[ $state == running ]]; then
+            step=$((remaining < 3 ? remaining : 3))
+            # Probe inside the container; no dependency on host port/firewall/context.
+            # The inner shell expands status after reading the HTTP response.
+            # shellcheck disable=SC2016
+            if timeout --signal=KILL "$step" docker exec "$id" bash -c '
+                exec 3<>/dev/tcp/127.0.0.1/5244
+                printf "GET /api/public/settings HTTP/1.0\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3
+                IFS= read -r -t 2 status <&3
+                [[ $status == *" 200 "* ]]
+            ' >/dev/null 2>&1; then
+                printf 'BoxList API 已就绪；端口映射：\n'
+                compose_bounded 3 port boxlist 5244 2>/dev/null || printf '无法获取端口映射，请使用 status 检查。\n'
+                return 0
+            else
+                rc=$?
+                if (( rc == 125 || rc == 126 || rc == 127 )); then
+                    reason="容器内 API 探测无法执行（退出码 $rc），请检查 Docker 和容器内 bash。"; break
+                fi
+            fi
+        fi
+        now=$(ready_now)
+        (( now-started < ready_timeout )) || break
         sleep 1
     done
-    fail '30 次检查后 API 未就绪；请使用 logs 查看原因（日志可能包含密码）'
+    readiness_diagnostics "${reason:-API 在 ${ready_timeout} 秒预算内未就绪；仍在运行的容器可能仍在初始化。}" "$id"
+    return 1
 }
 
 show_access() {
@@ -570,11 +684,12 @@ configure() {
     done < "$previous" > "$install_dir/.env.next"
     printf "PORT='%s'\nBIND_ADDRESS='%s'\nSITE_URL='%s'\n" "$port" "$bind" "$site_url" >> "$install_dir/.env.next"
     mv -- "$install_dir/.env.next" "$install_dir/.env"
-    compose config -q
-    compose up -d --no-build
-    ready
+    compose_checked config -q
+    compose_checked up -d --no-build
+    # A readiness timeout is not a configuration failure: keep the running container.
     rm -f -- "$previous"
     trap - EXIT
+    ready
     show_access
 }
 backup_data() {
@@ -733,7 +848,7 @@ case "$command_name" in
             # External volumes retain their original ownership labels.
             printf 'volumes:\n  data:\n    external: true\n    name: %s_data\n' "$instance" > "$install_dir/compose.volume.yaml"
         fi
-        compose config -q
+        compose_checked config -q
         cp -- "$script_path" "$install_dir/boxlist.sh"
         chmod 700 "$install_dir/boxlist.sh"
         if [[ $reset_volume == true ]]; then
@@ -744,7 +859,7 @@ case "$command_name" in
             docker volume inspect "${instance}_data" >/dev/null
         fi
         printf '%s\n' "$instance" > "$marker"
-        compose up -d --no-build
+        compose_checked up -d --no-build
         ready
         install_manager_commands
         date '+%Y-%m-%d %H:%M:%S' > "$install_dir/.installed-at"
@@ -753,14 +868,16 @@ case "$command_name" in
         ;;
     update)
         printf '更新将保留数据卷与配置；请确保已完成备份。\n'
-        old_id=$(compose ps -aq boxlist)
+        old_id=$(compose_bounded 3 ps -aq boxlist 2>/dev/null) || { readiness_diagnostics '无法查询更新前的容器。'; exit 1; }
         old_image=
-        [[ -z $old_id ]] || old_image=$(docker inspect --format '{{.Image}}' "$old_id")
-        compose pull
-        compose up -d --no-build
+        if [[ -n $old_id ]]; then
+            old_image=$(timeout --signal=KILL 3 docker inspect --format '{{.Image}}' "$old_id" 2>/dev/null) || { readiness_diagnostics '无法查询更新前的镜像。' "$old_id"; exit 1; }
+        fi
+        compose_checked pull
+        compose_checked up -d --no-build
         ready
-        new_id=$(compose ps -q boxlist)
-        new_image=$(docker inspect --format '{{.Image}}' "$new_id")
+        new_id=$(compose_bounded 3 ps -q boxlist 2>/dev/null) || { readiness_diagnostics 'API 已就绪，但无法查询当前容器。'; exit 1; }
+        new_image=$(timeout --signal=KILL 3 docker inspect --format '{{.Image}}' "$new_id" 2>/dev/null) || { readiness_diagnostics 'API 已就绪，但无法查询当前镜像。' "$new_id"; exit 1; }
         if [[ -z $old_image ]]; then
             printf 'BoxList 容器已创建并启动；无旧容器镜像可比较。\n'
         elif [[ $old_image == "$new_image" ]]; then
@@ -769,9 +886,9 @@ case "$command_name" in
             printf 'BoxList 更新完成！\n'
         fi
         printf '当前版本：%s\n' "$(display_version "$new_id")" ;;
-    start) compose up -d --no-build; ready ;;
+    start) compose_checked up -d --no-build; ready ;;
     stop) compose stop; printf 'BoxList 已停止\n' ;;
-    restart) compose restart; ready; printf 'BoxList 已重启\n' ;;
+    restart) compose_checked restart; ready; printf 'BoxList 已重启\n' ;;
     status)
         id=$(compose ps -aq boxlist)
         if [[ -z $id ]]; then

@@ -86,6 +86,7 @@ type Manager struct {
 	events    chan string
 	// gate serializes claims/control/transactions without ever covering network IO.
 	gate               sync.Mutex
+	verifying          bool
 	workerLimit        int
 	activeClaims       map[uint]workerClaim
 	fileTurn           bool
@@ -106,8 +107,9 @@ type ownScanKey struct{}
 var hookManagers sync.Map
 var hookOnce sync.Once
 
-// New migrates only additive derivative tables and reconciles local state. Call
-// Start after storage drivers have been loaded. Open is the auto-start variant.
+// New migrates additive derivative tables and recovers interrupted task state.
+// Existing artifacts are checked only on access or by an explicit Verify request.
+// Call Start after storage drivers have been loaded; Open is the auto-start variant.
 func New(database *gorm.DB, root string) (*Manager, error) {
 	if database == nil {
 		return nil, fmt.Errorf("nil derivative database")
@@ -293,9 +295,9 @@ func pageBounds(page, per int) (int, int) {
 }
 
 func (m *Manager) recover() error {
-	// A manager is process-local and the worker count is exactly one. Deployments
-	// must not run two backend processes against the same derivatives root.
-	if err := m.db.Transaction(func(tx *gorm.DB) error {
+	// Deployments must not run two backend processes against the same derivatives
+	// root. Recover task state before exposing the manager to API handlers.
+	return m.db.Transaction(func(tx *gorm.DB) error {
 		if e := tx.Model(&Item{}).Where("state = ?", "active").Updates(map[string]any{"state": "queued", "stage": "recovered", "lease_until": time.Time{}}).Error; e != nil {
 			return e
 		}
@@ -306,28 +308,100 @@ func (m *Manager) recover() error {
 			return e
 		}
 		return tx.Model(&Job{}).Where("state = ?", "cancelling").Updates(map[string]any{"state": "cancelled", "active_key": nil}).Error
-	}); err != nil {
-		return err
+	})
+}
+
+type VerificationResult struct {
+	Checked int64 `json:"checked"`
+	Missing int64 `json:"missing"`
+}
+
+// Verify is an explicit administrator operation, never part of startup. It
+// checks local bytes and remote metadata only, without fetching bucket objects.
+func (m *Manager) Verify(ctx context.Context) (VerificationResult, error) {
+	result := VerificationResult{}
+	m.gate.Lock()
+	if m.ctx.Err() != nil {
+		m.gate.Unlock()
+		return result, ErrClosed
 	}
-	// File metadata/checksums are local: this never probes offline remote sources.
+	if m.verifying {
+		m.gate.Unlock()
+		return result, ErrConflict
+	}
+	m.verifying = true
+	m.wg.Add(1)
+	m.gate.Unlock()
+	defer func() {
+		m.gate.Lock()
+		m.verifying = false
+		m.gate.Unlock()
+		m.wg.Done()
+	}()
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	stop := context.AfterFunc(m.ctx, cancel)
+	defer stop()
+	defer cancel()
+	database := m.db.WithContext(ctx)
 	var cursor string
+	rows := make([]Artifact, 0, 200)
+	targetIDs := make([]uint, 0, 200)
+	targets := make(map[uint]*DerivativeS3Target)
+	loaded := make([]DerivativeS3Target, 0, 200)
 	for {
-		var rows []Artifact
-		q := m.db.Where("state = ? AND id > ?", "ready", cursor).Order("id").Limit(200).Find(&rows)
-		if q.Error != nil {
-			return q.Error
+		if err := ctx.Err(); err != nil {
+			return result, err
+		}
+		if err := database.Where("state = ? AND id > ?", "ready", cursor).Order("id").Limit(200).Find(&rows).Error; err != nil {
+			return result, err
 		}
 		if len(rows) == 0 {
 			break
 		}
+		targetIDs = targetIDs[:0]
+		clear(targets)
 		for _, a := range rows {
-			cursor = a.ID
-			if !m.artifactFileValid(a, true) {
-				if e := m.db.Model(&Artifact{}).Where("id = ?", a.ID).Updates(map[string]any{"state": "missing", "error": "local_artifact_missing_or_corrupt"}).Error; e != nil {
-					return e
+			if a.OutputTargetID != 0 {
+				if _, seen := targets[a.OutputTargetID]; !seen {
+					targetIDs = append(targetIDs, a.OutputTargetID)
+					targets[a.OutputTargetID] = nil
 				}
 			}
 		}
+		if len(targetIDs) > 0 {
+			if err := database.Select("id", "prefix").Where("id IN ?", targetIDs).Find(&loaded).Error; err != nil {
+				// A database failure is not evidence of a missing artifact.
+				return result, err
+			}
+			for i := range loaded {
+				targets[loaded[i].ID] = &loaded[i]
+			}
+		}
+		for _, a := range rows {
+			if err := ctx.Err(); err != nil {
+				return result, err
+			}
+			cursor = a.ID
+			valid := false
+			if a.OutputTargetID != 0 {
+				valid = remoteArtifactValid(a, targets[a.OutputTargetID])
+			} else {
+				valid = m.localArtifactFileValid(ctx, a, true)
+			}
+			if err := ctx.Err(); err != nil {
+				return result, err
+			}
+			result.Checked++
+			if !valid {
+				// Never overwrite a concurrent publication or revoked state.
+				updated := database.Model(&Artifact{}).Where("id = ? AND state = ? AND updated_at = ?", a.ID, "ready", a.UpdatedAt).
+					Updates(map[string]any{"state": "missing", "error": "local_artifact_missing_or_corrupt"})
+				if updated.Error != nil {
+					return result, updated.Error
+				}
+				result.Missing += updated.RowsAffected
+			}
+		}
 	}
-	return nil
+	return result, nil
 }

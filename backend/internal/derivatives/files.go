@@ -107,17 +107,13 @@ func (m *Manager) FilePath(a Artifact) (string, error) {
 }
 func (m *Manager) artifactFileValid(a Artifact, checksum bool) bool {
 	if a.OutputTargetID != 0 {
-		if !validArtifactID(a.ID) || (a.Profile != "thumb" && a.Profile != "reader") || a.File != "" || a.Bytes <= 0 || a.Bytes > s3MaxObjectBytes || !validArtifactID(a.SHA256) {
-			return false
-		}
 		target, err := m.s3TargetForArtifact(a)
-		objectID := a.ID
-		if a.ObjectID != "" {
-			objectID = a.ObjectID
-		}
-		key, keyErr := s3ArtifactKey(target, objectID)
-		return err == nil && keyErr == nil && key == a.ObjectKey
+		return err == nil && remoteArtifactValid(a, target)
 	}
+	return m.localArtifactFileValid(m.ctx, a, checksum)
+}
+
+func (m *Manager) localArtifactFileValid(ctx context.Context, a Artifact, checksum bool) bool {
 	p, e := m.FilePath(a)
 	if e != nil {
 		return false
@@ -135,10 +131,22 @@ func (m *Manager) artifactFileValid(a Artifact, checksum bool) bool {
 	}
 	defer f.Close()
 	h := sha256.New()
-	if _, e = io.Copy(h, f); e != nil {
+	if _, e = io.Copy(h, encoderContextReader{ctx: ctx, r: f}); e != nil {
 		return false
 	}
 	return hex.EncodeToString(h.Sum(nil)) == a.SHA256
+}
+
+func remoteArtifactValid(a Artifact, target *DerivativeS3Target) bool {
+	if target == nil || target.ID != a.OutputTargetID || !validArtifactID(a.ID) || (a.Profile != "thumb" && a.Profile != "reader") || a.File != "" || a.Bytes <= 0 || a.Bytes > s3MaxObjectBytes || !validArtifactID(a.SHA256) {
+		return false
+	}
+	objectID := a.ID
+	if a.ObjectID != "" {
+		objectID = a.ObjectID
+	}
+	key, err := s3ArtifactKey(target, objectID)
+	return err == nil && key == a.ObjectKey
 }
 func (m *Manager) commitFile(tmp, rel string) error {
 	dest := filepath.Join(m.root, filepath.FromSlash(rel))

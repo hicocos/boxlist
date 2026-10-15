@@ -81,7 +81,7 @@ type DerivativeItemProfile struct {
 }
 
 type DerivativeArtifact struct {
-	ID             string     `json:"id" gorm:"size:64;primaryKey"`
+	ID             string     `json:"id" gorm:"size:64;primaryKey;index:derivative_artifact_state_id,priority:2"`
 	SourceKey      string     `json:"-" gorm:"size:64;index"`
 	PathKey        string     `json:"-" gorm:"size:64;index"`
 	ParentKey      string     `json:"-" gorm:"size:64;index"`
@@ -91,7 +91,7 @@ type DerivativeArtifact struct {
 	Revision       string     `json:"revision" gorm:"size:64"`
 	Profile        string     `json:"profile" gorm:"size:16"`
 	Version        int        `json:"version"`
-	State          string     `json:"state" gorm:"size:32;index"`
+	State          string     `json:"state" gorm:"size:32;index;index:derivative_artifact_state_id,priority:1"`
 	File           string     `json:"-" gorm:"type:text"`
 	OutputTargetID uint       `json:"-" gorm:"index;default:0"`
 	ObjectKey      string     `json:"-" gorm:"type:text"`

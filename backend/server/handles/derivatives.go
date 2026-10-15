@@ -165,6 +165,12 @@ func DerivativeCleanupAssessment(c *gin.Context) {
 		common.SuccessResp(c, result)
 	}
 }
+func DerivativeVerify(c *gin.Context) {
+	result, err := derivatives.Default.Verify(c.Request.Context())
+	if !derivativeError(c, err) {
+		common.SuccessResp(c, result)
+	}
+}
 func DerivativeCleanup(c *gin.Context) {
 	var req struct {
 		Mode string `json:"mode"`

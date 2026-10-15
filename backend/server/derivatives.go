@@ -27,4 +27,5 @@ func derivativeAdminRoutes(g *gin.RouterGroup) {
 	g.POST("/s3/test", handles.DerivativeS3Test)
 	g.GET("/cleanup", handles.DerivativeCleanupAssessment)
 	g.POST("/cleanup", handles.DerivativeCleanup)
+	g.POST("/verify", handles.DerivativeVerify)
 }
