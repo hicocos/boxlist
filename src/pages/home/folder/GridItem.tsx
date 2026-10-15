@@ -136,7 +136,7 @@ export const GridItem = (props: { obj: StoreObj; index: number }) => {
                 loading="lazy"
             />
           </Center>
-          <FileName name={props.obj.name} directory={props.obj.is_dir} />
+          <FileName name={props.obj.name} />
         </VStack>
       </Motion.div>
     </Show>

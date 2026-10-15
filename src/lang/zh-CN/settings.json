@@ -14,6 +14,12 @@
   "customize_head": "自定义头部",
   "decompress_download_task_threads_num": "解压下载任务线程数",
   "decompress_upload_task_threads_num": "解压上传任务线程数",
+  "default_filename_overflow": "文件名过长默认策略",
+  "default_filename_overflows": {
+    "ellipsis": "省略号",
+    "scrollable": "滚动显示",
+    "multi_line": "多行显示"
+  },
   "default_page_size": "默认每页数量",
   "external_previews": "外部预览",
   "favicon": "网站图标",
@@ -125,6 +131,8 @@
   "sso_client_id": "SSO 客户端 ID",
   "sso_client_secret": "SSO 客户端密钥",
   "sso_compatibility_mode": "SSO 兼容模式",
+  "sso_postmessage_origin": "SSO 前端来源",
+  "sso_postmessage_origin-tips": "接收 SSO 弹窗结果的前端 origin，例如 https://files.example.com，不含路径；同源部署留空。",
   "sso_default_dir": "SSO 默认根路径",
   "sso_default_permission": "SSO 默认权限",
   "sso_endpoint_name": "SSO 端点名称",

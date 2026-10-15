@@ -1,0 +1,18 @@
+{
+  "setup_to": "Setup",
+  "title": "Initialize BoxList",
+  "username-tips": "Admin username",
+  "password-tips": "Set admin password",
+  "confirm_password-tips": "Confirm password",
+  "site_title-tips": "Site title",
+  "setup": "Initialize",
+  "failed": "Initialization failed",
+  "password_mismatch": "Passwords do not match",
+  "password_too_short": "Password must be at least 4 characters",
+  "creating_account": "Creating admin account...",
+  "done_title": "Initialization complete",
+  "done_subtitle": "Your BoxList instance is ready to use.",
+  "done_username": "Admin username",
+  "done_go_login": "Go to login",
+  "done_go_home": "Open home page"
+}

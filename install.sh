@@ -447,7 +447,7 @@ show_initial_credentials() {
         printf '\n  管理员账号  admin\n  初始密码    %s%s%s\n\n  请保存密码，登录后及时修改。\n' "$success" "$password" "$reset"
         if [[ $command_name == password || $command_name == docker-password ]]; then printf '  这是日志中的首次密码；修改密码后它不会更新。\n'; fi
     else
-        printf '\n  已保留原账号与密码，未进行重置。\n  忘记密码可在管理面板选择“重置管理员密码”。\n'
+        printf '\n  首次安装：请打开网页完成初始化，创建管理员账号。\n  已有数据：沿用原有账号与密码，未进行重置。\n  忘记密码可在管理面板选择“重置管理员密码”。\n'
     fi
 }
 
@@ -514,7 +514,11 @@ show_install_success() {
     while IFS= read -r line; do
         case "$line" in *'Successfully created the admin user and the initial password is: '*) password=${line##*initial password is: } ;; esac
     done < <(compose logs --no-color boxlist)
-    if [[ -n $password ]]; then rows+=('默认账号：admin' "初始密码：$password"); else rows+=('账号密码：沿用原有账号密码'); fi
+    if [[ -n $password ]]; then
+        rows+=('默认账号：admin' "初始密码：$password")
+    else
+        rows+=('首次安装：打开网页完成初始化，创建管理员账号' '已有数据：沿用原有账号密码')
+    fi
     for line in "${rows[@]}"; do size=$(text_width "$line"); (( size <= width )) || width=$size; done
     printf -v border '%*s' "$((width+2))" ''; border=${border// /─}
     printf '┌%s┐\n' "$border"

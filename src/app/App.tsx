@@ -15,7 +15,7 @@ import { Error } from "~/components"
 import { useLoading, useRouter, useT } from "~/hooks"
 import { setSettings } from "~/store"
 import { loadArchiveExtensions } from "~/store/archive"
-import { Resp } from "~/types"
+import type { InitStatus, Resp } from "~/types"
 import { base_path, bus, handleRespWithoutAuthAndNotify, r } from "~/utils"
 import { MustUser, UserOrGuest } from "./MustUser"
 import "./index.css"
@@ -31,6 +31,7 @@ import { FullScreenLoading } from "~/components/FullLoading"
 const Home = lazy(() => import("~/pages/home/Layout"))
 const Manage = lazy(() => import("~/pages/manage"))
 const Login = lazy(() => import("~/pages/login"))
+const Init = lazy(() => import("~/pages/init"))
 const Reader = lazy(() => import("~/pages/reader/Reader"))
 
 const App: Component = () => {
@@ -69,19 +70,30 @@ const App: Component = () => {
   })
 
   const [err, setErr] = createSignal<string[]>([])
+  const [initialized, setInitialized] = createSignal<boolean>()
   const [loading, data] = useLoading(async () => {
     setErr([])
     try {
+      const [settingsResp, initResp] = await Promise.all([
+        r.get("/public/settings") as Promise<Resp<Record<string, string>>>,
+        r.get("/public/init_status") as Promise<Resp<InitStatus>>,
+      ])
+      handleRespWithoutAuthAndNotify(settingsResp, setSettings, (e) => setErr([e]))
       handleRespWithoutAuthAndNotify(
-        (await r.get("/public/settings")) as Resp<Record<string, string>>,
-        setSettings,
-        (e) => setErr([e]),
+        initResp,
+        (status) => setInitialized(status.initialized),
+        (e) => setErr((errors) => [...errors, e]),
       )
     } catch {
       setErr(["连接失败，请检查网络后重试。"])
     }
   })
   data()
+  createEffect(() => {
+    if (initialized() === false && pathname() !== "/@init") {
+      to("/@init", true)
+    }
+  })
   return (
     <>
       <Portal>
@@ -103,6 +115,7 @@ const App: Component = () => {
         fallback={
           <Routes base={base_path}>
             <Route path="/@login" component={Login} />
+            <Route path="/@init" component={Init} />
             <Route
               path="/@manage/*"
               element={

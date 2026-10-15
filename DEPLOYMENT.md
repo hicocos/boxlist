@@ -1,73 +1,32 @@
 # 部署与运维
 
-本指南对应仓库的 [`compose.yaml`](compose.yaml)、可选的 [`compose.build.yaml`](compose.build.yaml) 和 [`Dockerfile`](Dockerfile)。不依赖已有实例、预置账号、样本目录或额外本地脚本。
-
-## 部署模型与构建要求
-
-推荐使用 Linux 容器及 Docker Compose 插件。默认从 GHCR 拉取提前构建的镜像，支持 AMD64 / ARM64；部署服务器不需要下载源码、安装构建依赖或编译。镜像包含本仓库的前端和 Go 后端，以单个服务进程运行。`latest` 跟随成功发布的 `main` 分支，固定版本可设置 `BOXLIST_IMAGE` 为已发布标签或 digest。
-
-以下是镜像发布或自行源码构建时的配置，普通镜像部署无需执行这些步骤：
-
-| 项目 | 版本或配置来源 |
-| --- | --- |
-| Node.js | Dockerfile：`24.21.0`，Debian Bookworm |
-| pnpm | package.json / Dockerfile：`11.24.0`，使用冻结的锁文件安装 |
-| Go | Dockerfile / go.mod toolchain：`1.27.0`；go.mod 语言版本为 `1.25.0` |
-| 前端构建 | `VITE_API_URL=/ pnpm run build` |
-| 后端构建 | `CGO_ENABLED=0`，`jsoniter` 构建标签，嵌入 `backend/public/dist` |
-| 运行基础镜像 | `debian:bookworm-slim` |
-| 图片编码器 | `libvips-tools=8.14.1-3+deb12u3`，由运行镜像安装，另需 `util-linux` 的资源限制工具 |
-
-Docker 构建不要求宿主机安装 Node、pnpm、Go 或 libvips，但需要网络、足够的磁盘和构建内存。Dockerfile 使用 BuildKit 缓存挂载；使用支持它的 Docker Engine。源代码构建与图片处理的资源需求不同，不应把某台机器的内存配额视为通用最低要求。当前 Compose 没有设置 CPU/内存硬上限，应按负载配置。
-
-如自行构建后端，必须先构建本仓库前端并将 `dist/` 内容放入 `backend/public/dist/`，再编译 Go。Linux 运行环境还需安装上述图片工具；仅构建 Go 二进制不能提供预览图编码能力。
+推荐使用 Docker Compose，支持 Linux AMD64 / ARM64。镜像包含前端、后端和预览图工具，无需在服务器上编译。
 
 ## 一键安装与管理
-
-脚本参考 [OpenList 官方管理脚本](https://doc.oplist.org/guide/installation/script)的安装和管理体验，为 BoxList 的 GHCR 镜像独立实现；不安装 OpenList 官方二进制。支持 Linux AMD64 / ARM64，宿主需要 Bash、curl、coreutils（realpath、timeout）和 util-linux（flock）。
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/hicocos/boxlist/main/install.sh -o install-boxlist.sh
 sudo bash install-boxlist.sh install --install-docker
 ```
 
-`--install-docker` 允许在 Docker 不存在时下载并运行 `https://get.docker.com` 官方安装脚本，需要 root 及该脚本支持的发行版。已有 Docker 不会被重装；如果缺少 Compose 插件，需按发行版安装插件后重试。Docker 服务必须可访问，安装网络需要 GitHub、GHCR；脚本不修改防火墙或配置 HTTPS。
+选择 `1` 安装，端口默认 `5244`。安装目录默认为 `/opt/boxlist`。安装后运行 `sudo boxlist` 或 `sudo boxlist-manager` 打开管理菜单。
 
-运行一键命令首先进入管理菜单，选择 `1` 安装。安装只询问访问端口，直接回车使用 5244，随后自动安装；不需要选择镜像或填写域名。默认配置目录 `/opt/boxlist`、容器名 `boxlist`、数据卷 `boxlist_data`。完成后在同一个信息框中显示版本、实际访问地址、数据卷中的配置文件位置和初始账号密码，按任意键返回主菜单。保留旧数据安装时继续使用原密码。root 安装默认实例时会创建 `boxlist` 和 `boxlist-manager` 两个管理命令（不覆盖无关命令）；旧实例执行 `script-update` 也会补齐管理命令。高级配置可使用下文命令参数或 `configure`；自动化安装可加 `--non-interactive`，直接安装并在完成后退出。
-
-| 命令 | 行为 |
+| 命令 | 用途 |
 | --- | --- |
-| `sudo boxlist update` | 先拉取镜像，成功后更新容器；保留配置与数据；更新前自行备份 |
-| `sudo boxlist status` | 查看运行状态 |
-| `sudo boxlist logs` | 查看最近 100 行日志，首次密码也在其中；不要公开日志 |
-| `sudo boxlist start` | 启动或重新创建容器；应用修改后的 `.env` / override |
-| `sudo boxlist stop` / `restart` | 停止 / 重启服务；restart 不重新加载 Compose 配置 |
-| `sudo boxlist password` | 生成随机密码或交互设置新密码，完成后恢复此前运行状态 |
-| `sudo boxlist configure` | 修改端口、监听地址和站点地址并应用 |
-| `sudo boxlist backup` | 暂停服务后备份应用数据到安装目录的 `backups/`，再恢复运行 |
-| `sudo boxlist restore` | 选择备份恢复，覆盖前自动备份现有数据 |
-| `sudo boxlist docker` | Docker 子菜单：安装、进入容器、密码、状态、启停和删除容器 |
-| `sudo boxlist schedule` | 启用、禁用或查看定时更新（需 root 和运行中的 cron 服务） |
-| `sudo boxlist system` / `about` | 系统状态 / 脚本与项目介绍 |
+| `sudo boxlist update` | 更新程序，保留配置和数据 |
+| `sudo boxlist status` / `logs` | 查看状态 / 日志 |
+| `sudo boxlist start` / `stop` / `restart` | 启动 / 停止 / 重启 |
+| `sudo boxlist password` | 重置管理员密码 |
+| `sudo boxlist configure` | 修改端口和站点地址 |
+| `sudo boxlist backup` / `restore` | 备份 / 恢复应用数据 |
 | `sudo boxlist script-update` | 更新管理脚本 |
-| `sudo boxlist uninstall` | 确认后彻底删除容器、网络、应用数据卷、安装目录及对应管理命令 |
+| `sudo boxlist uninstall` | 卸载并删除应用数据 |
 
-更新提示按实际变化区分：`update` 会比较更新前后的容器镜像 ID（包含已停止的旧容器）；镜像相同提示“当前已是最新镜像，无需更新程序”，镜像变化且服务就绪后才提示“BoxList 更新完成”。若旧容器不存在，则提示容器已创建并启动、无旧容器镜像可比较。`script-update` 会比较下载内容与已安装的管理脚本，内容相同提示“管理脚本已是最新，无需更新”，不替换脚本文件。
+卸载会删除安装目录及其中的备份，请先将需要保留的文件移至其他位置。其他选项见 `bash install-boxlist.sh --help`。
 
-卸载不可恢复，安装目录中的备份也会删除，请先将需要保留的备份移至其他位置。`--yes` 可用于无交互确认彻底卸载；暂时不用请选择 `stop`。外部原文件和远端存储不受影响。残留数据卷可在新安装时选择保留或删除；已有运行实例不会被接管。
+## Docker 部署
 
-自定义安装示例（适合同机反向代理）：
-
-```sh
-sudo bash install-boxlist.sh install --dir /opt/boxlist-second --name boxlist-second --port 5245 --bind 127.0.0.1 --site-url https://files.example.com
-sudo bash /opt/boxlist-second/boxlist.sh status --dir /opt/boxlist-second
-```
-
-非默认实例不创建全局 `boxlist` 命令，使用安装目录中的 `boxlist.sh` 和相同的 `--dir`。非 root 用户已有 Docker 权限时可省略 sudo，选择可写目录。镜像可用 `--image` 指定已发布版本或 digest；这些安装参数仅用于新安装，后续修改安装目录中的 `.env`，执行 `start` 应用配置。不要更改项目名、容器名或数据卷归属。
-
-交互启动会清屏；主菜单及子菜单操作结束、取消或失败后，按任意键清屏返回同一个主菜单。未安装时各项管理操作统一提示先安装。完整备份与恢复按下文执行；备份命令不包含外部原文件或 S3 桶对象。
-
-## 首次启动
+将 [compose.yaml](compose.yaml) 下载到独立目录后启动：
 
 ```sh
 mkdir -p boxlist
@@ -75,20 +34,15 @@ cd boxlist
 curl -fsSL https://raw.githubusercontent.com/hicocos/boxlist/main/compose.yaml -o compose.yaml
 docker compose pull
 docker compose up -d
-docker compose logs boxlist
 ```
 
-服务名和容器名均为 `boxlist`，默认镜像为 `ghcr.io/hicocos/boxlist:latest`。首次创建管理员时密码只输出到控制台，之后数据库保存的是哈希；不要把启动日志作为公开故障报告上传。
+访问 `http://服务器IP:5244`。全新安装在网页初始化向导中创建管理员账号，已有数据继续使用原账号密码。请在公开站点前完成初始化，并使用强密码。
 
-全新安装默认禁用访客，未登录访问首页会进入登录页。管理员登录后，尚未挂载存储的根目录正常显示空目录和“转到存储”引导，不应出现目录加载失败或 API 500；添加存储后首页显示挂载目录。一键脚本使用同一 Docker 镜像，因此两种安装方式行为一致。此处理仅适用于无存储的虚拟根目录，不会隐藏已挂载存储的读取故障或绕过访问权限。
+默认禁用访客。登录管理后台添加存储，并按需要配置用户和访问权限。
 
-后台「存储」列表支持直接修改序号：卡片和表格布局均可在序号输入框旁点击「保存」，或按回车提交；保存后刷新列表。序号必须为整数，数值越小越靠前。新增和编辑页面不再显示序号输入框，编辑其他配置时保留已有序号。列表控件沿用后台主题，适配浅色、深色和手机布局。
+自动化部署可在 Compose 的 `environment` 中显式设置 `OPENLIST_ADMIN_PASSWORD`，仅在没有管理员时创建 `admin`，不会重置已有密码。该方式首次启动会输出密码，不要公开日志。
 
-前台竖向工具栏采用紧凑水平留白，滚动区不重复叠加左右内边距；手机按钮保留 44px 点击区域，键盘焦点轮廓在滚动区内侧显示，避免裁切。
-游客不显示竖向工具栏的刷新按钮，登录用户仍按原权限使用刷新。展开和收起按钮不显示悬浮或原生标题提示，保留无障碍名称和展开状态。
-工具栏收起时仅显示更多图标，不显示毛玻璃底框；展开后显示面板。展开/收起按钮点击不绘制外围焦点线，键盘焦点使用图标发光提示。
-
-访问服务器的 5244 端口，登录后修改密码、添加存储并检查访客/用户权限。若丢失密码，可停止服务后通过同一数据卷运行密码重置命令，避免另起一个服务进程：
+忘记密码时，在原部署目录执行：
 
 ```sh
 docker compose stop boxlist
@@ -96,78 +50,45 @@ docker compose run --rm --no-deps boxlist admin random --no-prefix
 docker compose up -d boxlist
 ```
 
-重置输出包含新密码，请妥善保存并及时修改。
-
 ## 配置与网络
 
-Compose 从项目根目录 `.env` 或命令行环境读取：
+在部署目录的 `.env` 中配置：
 
-| 变量 | 默认值 | 说明 |
+| 变量 | 默认值 | 用途 |
 | --- | --- | --- |
-| `SITE_URL` | 空字符串 | 实际对外访问的完整站点地址；反向代理场景使用实际 HTTPS 地址 |
-| `BIND_ADDRESS` | `0.0.0.0` | 宿主端口绑定的接口 |
-| `PORT` | `5244` | 宿主端口，转发到容器内 `5244` |
-| `BOXLIST_IMAGE` | `ghcr.io/hicocos/boxlist:latest` | 可指定已发布版本标签、`sha-完整提交SHA` 或 `ghcr.io/hicocos/boxlist@sha256:…` |
-| `BOXLIST_CONTAINER_NAME` | `boxlist` | 容器名；多实例必须同时区分 Compose 项目名、端口和数据卷 |
+| `SITE_URL` | 空 | 对外访问地址，建议使用 HTTPS |
+| `BIND_ADDRESS` | `0.0.0.0` | 宿主监听地址 |
+| `PORT` | `5244` | 宿主端口 |
+| `BOXLIST_IMAGE` | `ghcr.io/hicocos/boxlist:latest` | 镜像标签或 digest |
+| `BOXLIST_CONTAINER_NAME` | `boxlist` | 容器名称 |
 
-例如，仅供同机反向代理访问：
+同机反向代理示例：
 
 ```dotenv
+SITE_URL=https://files.example.com
 BIND_ADDRESS=127.0.0.1
 PORT=5244
 ```
 
-另将 `SITE_URL` 设置为自己的公开 HTTPS 地址。默认全部接口绑定会让局域网或公网直接访问端口，需同时考虑防火墙和云安全组。
+建议使用 Nginx 或 Caddy 配置 HTTPS。代理应保留 Range、HEAD 和 WebDAV 方法，按需求设置上传大小和超时；不要公开应用数据目录，也不要缓存受权限保护的 API 或预览图。日志中的下载签名、令牌和密码需脱敏。
 
-`BIND_ADDRESS` 和 `PORT` 是 Compose 的端口映射变量，不会修改后端监听配置。应用配置保存在数据卷内的 `config.json`，默认 SQLite 数据库为 `data.db`。当前启动参数使用 `--no-prefix`；应用环境变量通常覆盖配置文件对应项，但 `config.json` 的 `force: true` 会禁止此覆盖。管理页面中的站点、存储和权限设置则保存在数据库。
-
-默认 Compose 只向容器传入 `SITE_URL`。其他变量（例如预览图限制或 `TZ`）需通过 Compose `environment` 显式传入。可以使用本地 `compose.override.yaml`，避免直接改动上游文件：
+其他环境变量通过 `compose.override.yaml` 显式传入：
 
 ```yaml
 services:
   boxlist:
     environment:
+      TZ: Asia/Shanghai
       DERIVATIVES_BUDGET_BYTES: "21474836480"
 ```
 
-此示例将本地预览图与临时工作预算设为 20 GiB，不代表默认配额。修改 Compose 或 `.env` 后运行 `docker compose up -d` 重新创建受影响容器；`docker compose restart` 不会重新加载 Compose 环境定义。修改数据卷中的启动配置后需重启服务。
-
-### 反向代理与 HTTPS
-
-建议由 Nginx、Caddy 等在站点根路径终止 TLS，再代理至 BoxList。证书申请、域名 DNS 和证书续期由部署者管理，镜像不会自动配置这些服务。
-
-下面是放入**已经配置好域名、HTTPS 监听与证书的 Nginx `server` 块**中的位置配置；不是完整 TLS 配置：
-
-```nginx
-location / {
-    proxy_pass http://127.0.0.1:5244;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_request_buffering off;
-    proxy_buffering off;
-    proxy_read_timeout 300s;
-    proxy_send_timeout 300s;
-    client_max_body_size 1g;
-    access_log off;
-}
-```
-
-- 按实际上传大小和网络状况调整大小限制及超时；外层 CDN/代理也可能有自己的限制。
-- 保留 Range、HEAD、条件请求和 WebDAV 方法，不要把应用 API 改写为静态文件路由。
-- 不要缓存受权限保护的 API 和预览图，也不要把 `data/` 或 `derivatives/artifacts/` 配置成公开静态目录。
-- 下载/预览 URL 可能含短期票据或签名。上例关闭访问日志；如需日志，应使用不记录查询串的格式，并检查代理、CDN、错误日志与监控系统的脱敏策略。
-- 若代理也运行在容器内，代理中的 `127.0.0.1` 指向它自己。应将两者接入受控 Docker 网络并代理至 `boxlist:5244`，不要照搬同机代理地址。
+修改 `.env` 或 Compose 配置后运行 `docker compose up -d`。仅重启容器不会应用新的环境配置。
 
 ## 数据卷与本地存储
 
-默认命名卷的 Compose 键为 `data`，挂载到 `/opt/openlist/data`；默认项目名为 `boxlist`，Docker 卷名通常为 `boxlist_data`。容器以 **UID/GID 1001:1001** 运行，工作目录为 `/opt/openlist`。
+默认数据卷为 `boxlist_data`，容器路径为 `/opt/openlist/data`。容器使用 **UID/GID 1001:1001**。配置、数据库、图标、预览图和密钥都保存在数据卷中。
 
-这个卷保存配置、数据库、图标、本地预览图、S3 凭据加密密钥及运行文件，不是已经挂载到应用中的全部原文件。网盘/S3 中的原文件留在对应服务；本地文件需要另加绑定挂载。
-
-例如在本地 Compose override 中添加一个只读目录：
+本地原文件需单独挂载，例如：
 
 ```yaml
 services:
@@ -176,33 +97,37 @@ services:
       - /srv/boxlist-files:/mnt/files:ro
 ```
 
-先创建并确认宿主目录，赋予 UID/GID 1001 所需的读取和目录遍历权限，再在管理后台添加 Local 存储、填写**容器路径** `/mnt/files`。只有确实需要上传/修改时才去掉 `:ro` 并授予写权限；应用内权限和文件系统权限都必须允许该操作。
+为 UID/GID 1001 提供必要的读取权限，在管理后台添加 Local 存储并填写容器路径 `/mnt/files`。需要上传或修改时再移除 `:ro` 并授予写权限，不要使用全局可写权限。
 
-如把应用数据卷改为宿主绑定目录，也必须预先创建目录并设置 1001:1001 所有权和受限权限，不要用全局可写权限解决问题。切换挂载前先停止服务并迁移原卷内容；直接换成空目录会呈现全新实例。不要让多个后端进程共享同一数据库和预览图目录，预览图任务不是分布式工作队列。
+不要让多个后端进程共用同一数据目录。切换卷或绑定目录前先停止服务并迁移数据，空目录会被视为全新安装。
 
 ## 更新与回退
 
-更新前记录当前镜像 digest 和卷映射，完成一致性备份，再执行：
+更新前备份数据，并记录当前镜像和卷映射。
+
+一键脚本部署使用 `sudo boxlist update`。Docker 部署在原目录执行：
 
 ```sh
 docker compose pull
 docker compose up -d
-docker compose logs --tail 100 boxlist
 ```
 
-镜像部署不需要 `git pull` 或 `--build`。如果固定了版本标签或 digest，先修改 `.env` 中的 `BOXLIST_IMAGE`。不要用 `docker compose down -v` 更新；不要随意更换 Compose 项目名或数据卷。
+固定版本的实例需先修改 `BOXLIST_IMAGE`。不要使用 `docker compose down -v` 更新，也不要更换项目名或数据卷。已有账号和密码不会因更新重置。
 
-回退时将 `BOXLIST_IMAGE` 设置为先前记录的镜像 digest，再执行上述命令；先在数据副本上确认兼容性。旧程序不一定理解新增数据库字段或 S3 预览图；也不要为了回退直接覆盖数据库而丢失更新后的用户、设置和任务记录。
+回退时选择先前的镜像标签或 digest，并先确认数据兼容性。需要恢复旧数据库时，先另存当前数据，避免丢失更新后产生的内容。
 
-### 从源码部署迁移
+## 备份与恢复
 
-在原项目目录执行 `git pull --ff-only` 获取新的 Compose 配置，再执行 `docker compose pull` 和 `docker compose up -d`。有本地改动时先处理合并，不要强制覆盖。默认项目名仍为 `boxlist`，卷仍为 `boxlist_data`，挂载点仍为 `/opt/openlist/data`，UID/GID 仍为 1001:1001。
+1. 停止服务，确保没有其他程序写入数据。
+2. 备份整个应用数据卷并保留文件权限，不要只复制正在运行的 SQLite 数据库。
+3. 单独备份本地原文件、远端文件和 S3/R2 桶对象。
+4. 恢复服务，将备份放在受限且独立的位置。
 
-容器名由 Compose 自动生成的 `boxlist-boxlist-1` 改为 `boxlist`；同一项目内 `up -d` 会重建该服务并保留数据卷。不要手动新建另一个项目或空卷。如已有其他项目占用容器名 `boxlist`，先确认归属并在本地 override 中选择其他名称；显式容器名意味着单台 Docker 主机上多实例需使用不同名称。
+恢复时先停止服务，还原数据和 UID/GID 1001 的访问权限，再检查管理员登录、存储与文件读取。
 
-使用自定义 `compose.deploy.yaml` 等文件的实例，需在原文件中将 `image` 改为 GHCR 镜像、移除 `build` 并设置 `container_name: boxlist`；保留原有挂载、环境、端口和资源限制，继续使用原来的 `-f` 参数及项目名。不要直接替换成默认配置，否则绑定目录可能变成空命名卷。
+**网页备份不等于完整数据卷备份。** 预览图备份不包含图片文件；原始数据库中的对象存储凭据依赖 `derivatives/s3.key`，二者必须一同保存。网页备份也可能含可用凭据，请设置密码，勿上传到公开仓库或问题反馈中。
 
-### 自行源码构建
+## 自行源码构建
 
 ```sh
 git clone https://github.com/hicocos/boxlist.git
@@ -210,65 +135,11 @@ cd boxlist
 docker compose -f compose.yaml -f compose.build.yaml up -d --build
 ```
 
-构建覆盖文件使用 `boxlist:local`，禁止拉取同名远端镜像。`Dockerfile`、`Dockerfile.deploy` 及两个源码构建 Compose 配置的默认程序版本均为 `boxlist-v1.1`；Compose 可通过 `BOXLIST_VERSION` 指定版本，通过 `SOURCE_COMMIT` 单独记录提交 ID（未提供时为 `unknown`，不会冒用固定历史提交）。例如在构建命令前设置 `SOURCE_COMMIT="$(git rev-parse HEAD)"`；这只记录检出的提交，不代表工作区没有本地修改。更新源码后重新执行相同构建命令；后续日志、停止、管理员命令等操作也使用同样的两个 `-f` 参数。不要只运行默认 `docker compose up`，否则会切换回 GHCR 镜像。
+后续管理和更新继续使用相同的两个 `-f` 参数。工具链与依赖版本以 `Dockerfile`、`package.json`、`backend/go.mod` 为准。
 
-### 镜像发布
+## 使用提示
 
-[`publish-image.yml`](.github/workflows/publish-image.yml) 在推送 `main`、推送 `boxlist-v*` 标签或手动运行时构建镜像。两个原生 GitHub runner 分别构建 AMD64 和 ARM64，使用按架构隔离的 BuildKit 缓存，启动临时容器检查首页和公开设置 API；两种架构均通过后才发布多架构标签。
-
-- `main` 发布 `latest` 和 `sha-完整提交SHA`。
-- `boxlist-v*` 标签发布同名镜像标签及提交标签，不覆盖 `latest`；手动运行根据所选分支/标签遵循同样规则。
-- 镜像标签与程序版本分开：分支构建从 `package.json` 生成程序版本（当前 `1.1.0` → `boxlist-v1.1`），`boxlist-v*` 标签构建使用标签名；`sha-…` 仅作为定位提交的镜像标签。构建参数 `VERSION` 同时写入后端 `Version`、`WebVersion` 和 OCI `org.opencontainers.image.version`，`SOURCE_COMMIT` 单独写入 `GitCommit` 和 OCI `org.opencontainers.image.revision`。
-- 工作流使用仓库的 `GITHUB_TOKEN`，需要 Actions 可运行且允许 `packages: write`，无需另存个人令牌。
-- GHCR 新建包可能默认为私有。首次发布后，在 GitHub 的 `Packages → boxlist → Package settings` 中将可见性设为 Public，才能让普通用户免登录拉取。公开源码仓库不自动保证容器包公开。
-- 首次发布完成并确认匿名拉取成功后再使用镜像部署；若提示 `denied`，检查包可见性与访问权限；若提示 `manifest unknown`，检查工作流是否成功及标签是否存在。源码构建可在发布前使用。
-- Fork 会发布到自己的小写仓库路径，部署时需通过 `BOXLIST_IMAGE` 指向自己的包。
-
-发布状态见 [Actions](https://github.com/hicocos/boxlist/actions/workflows/publish-image.yml)，可用标签见 [Packages](https://github.com/hicocos/boxlist/pkgs/container/boxlist)。
-
-一键安装会先执行 `docker pull`，脚本更新会执行 `docker compose pull`；手动 Docker 部署也应先拉取再执行 `up -d`，仅 `restart` 不会更新镜像。拉取会重新解析远端标签，已存在的相同内容层可复用；源码或上述构建参数变化会使对应 BuildKit 构建步骤重新执行，无需常规禁用缓存。
-
-**仓库修复不会改写已发布镜像。** 只有包含修复的 `main` 多架构发布成功，默认 `latest` 安装才会获得修复；仅发布 `boxlist-v*` 标签不会推进 `latest`。固定旧标签、提交标签或 digest 的实例仍需主动选择包含修复的镜像。若远端标签尚未更新，重复拉取或重建容器仍是旧程序。一键脚本按实际镜像的 OCI 版本标签显示版本：旧标签中的 `sha-…` 原样显示，缺失版本显示“未知”，不会伪装为当前版本。可用 `docker compose exec boxlist /opt/openlist/openlist version` 核对运行中二进制的 `Version`、`WebVersion` 与 `Commit ID`；使用自定义 Compose 文件时保留原来的 `-f` 参数。后端启动会用编译版本刷新公开设置中的 `version`，无需删除数据卷来更新版本。
-
-`boxlist-v*` 为独立发布序列：启动时记录完整版本，不按上游 `v4.x` 版本号执行升级补丁，也不会被视为开发版而每次重复执行上游补丁。
-
-## 备份与恢复
-
-推荐的完整备份步骤：
-
-1. 暂停维护操作，执行 `docker compose stop boxlist`，确认没有其他写入者。
-2. 使用 Docker 卷备份工具或临时容器归档**整个应用数据卷**，保留文件权限；不要只复制运行中的 `data.db` 而忽略 SQLite WAL。外部数据库应使用数据库原生一致性备份。
-3. 单独备份本地原文件、远端原文件及 S3 预览图桶对象；应用数据卷不包含它们。保存实际 Compose override、环境配置和版本信息，这些文件可能含密钥。
-4. 执行 `docker compose up -d boxlist` 恢复服务，将备份存放在访问受限且独立于当前数据卷的位置。
-
-恢复时先停止服务，将数据还原到正确的卷或目录，恢复 UID/GID 1001 的访问权限，再启动匹配版本。先在隔离环境确认管理员登录、存储挂载和文件读取，避免把空卷或不完整备份直接作为正式数据。
-
-**网页“备份与还原”不替代完整卷备份。** 其中预览图部分只导出 S3 配置、可迁移凭据和索引，不包含本地预览图、任务、规则或任何图片文件。原始数据库备份必须同时保留 `derivatives/s3.key`；丢失它无法解密原数据库中的 S3 凭据。网页备份含可迁移凭据，应设置备份密码并妥善保存。详情见 [S3 备份说明](doc/derivative-s3.md#备份与恢复)。
-
-## 功能边界与使用提示
-
-### 分享有效期
-
-后台「分享」新增和编辑页面、前台文件菜单及工具栏的分享弹窗共用有效期控件，支持永不过期、1 小时、1 天、7 天、30 天以及自定义日期时间。新增默认永不过期；快捷期限从点击添加、保存或确认时起算。自定义时间按当前设备时区输入，必须选择未来时间。编辑已有分享而未调整有效期时，保留原到期时间，不会自动续期。重新打开前台分享弹窗时恢复永不过期，不沿用上一次选择。
-
-### 预览图
-
-管理员手动生成或明确启用目录规则，访客 GET 请求不会触发生成。支持的静态格式、大小上限、工作并发、空间保护和清理入口见 [预览图运维](doc/thumb-operations.md)。生成不改写原图；S3/CDN 直读有不同的保密边界，启用前阅读 [S3 说明](doc/derivative-s3.md)。
-
-### 文本、媒体和文档
-
-- 默认不超过 64 KiB 的文本文档使用 Markdown 渲染器，较大的使用分页文本阅读器；显式预览选择和管理员的“默认下载”设置优先。
-- 分页保留全文和换行，浏览器查找只覆盖当前页。分页限制渲染量，不限制下载量：文件仍完整进入浏览器内存。
-- 通用视频播放器对网络错误最多自动重试三次；解码失败、不支持格式或加载中止不会通过自动重试修复。播放能力取决于浏览器支持的容器/编码，不能视为通用服务器转码。
-- Office 等预览方式可能需要第三方服务或可访问的文件链接。私密内容应先了解所选服务的数据处理方式；不要为预览方便盲目公开文件。
-- 文件操作、搜索、跨存储复制和离线下载取决于存储驱动、权限及相关服务，不保证每个驱动都具有相同能力。
-
-### 图标和界面自定义
-
-- 图标素材支持 PNG/GIF，每张最多 5 MB，每批最多 20 张；不支持 APNG。GIF 保留动画，限制为最多 2000 帧、宽高各 4096 像素、画布 1600 万像素、画布面积与帧数乘积 1.6 亿。
-- v1.0 默认导入 34 款内置 PNG/GIF 素材；不会自动修改图标映射。内置素材和上传素材使用相同的管理流程，可删除或处理 GIF 白底。删除状态保存在图标数据库，重启与升级不会重新补齐已删除素材；清空整个数据卷属于全新安装，会重新初始化。
-- 图标素材的写操作要求管理员登录及匹配站点的 HTTPS Origin。正式使用上传、删除或去白底前，请配置 HTTPS 反向代理，并将 `SITE_URL` 设为实际访问地址；直接通过 HTTP 端口访问不满足该安全要求。
-- 图标映射修改是草稿，点击“保存更改”才生效；素材上传、删除和去白底即时生效。已使用的素材需先解除引用再删除。
-- GIF 的“生成透明背景”去除与边缘连通的白色区域，成功后原位覆盖素材，**没有恢复原图功能**。不是通用智能抠图，调色板和二值透明可能影响边缘与颜色；操作前保留原文件。
-- 壁纸、公告和自定义 HTML 都由部署者配置。不要粘贴不可信脚本；自定义 body 在主内容就绪后激活，仅依赖 `DOMContentLoaded` 的脚本需适配延迟执行，需要启动前执行的内容应放在 head。
-- 公告按浏览器标签页会话去重；恢复浏览器会话可能保留记录，禁用会话存储时只在当前页面生命周期去重。
+- 预览图生成与限制见 [预览图使用说明](doc/thumb-operations.md)，对象存储配置见 [S3 / R2 说明](doc/derivative-s3.md)。
+- 图标管理的写操作需要 HTTPS，并将 `SITE_URL` 设为实际站点地址。GIF 去白底会覆盖素材，操作前保留原图。
+- 自定义 HTML 或脚本只使用可信内容。部分文档预览依赖第三方服务，敏感文件使用前请了解其数据处理方式。
+- 推荐前后端同源部署。分离部署时，SSO 的 `sso_postmessage_origin` 填前端 origin，不含路径；账号绑定还受浏览器 cookie 策略限制。

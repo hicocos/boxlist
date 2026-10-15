@@ -88,7 +88,7 @@ function runtimeItemProps(
 
 const AddOrEdit = () => {
   const t = useT()
-  const { params, back, to } = useRouter()
+  const { params, to } = useRouter()
   const { id } = params
   const [driversLoading, loadDrivers] = useFetch(
     (): PResp<Drivers> => r.get("/admin/driver/list"),
@@ -248,7 +248,7 @@ const AddOrEdit = () => {
               resp,
               () => {
                 notify.success(t("global.save_success"))
-                back()
+                to("/@manage/storages", false, { replace: true })
               },
               (msg, code) => {
                 if (resp.data.id) {

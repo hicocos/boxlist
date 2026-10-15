@@ -2,6 +2,7 @@ package _115_open
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	_115_open "github.com/OpenListTeam/OpenList/v4/drivers/115_open"
@@ -122,7 +123,7 @@ func (o *Open115) Status(task *tool.DownloadTask) (*tool.Status, error) {
 			s.Completed = t.IsDone()
 			s.TotalBytes = t.Size
 			if t.IsFailed() {
-				s.Err = fmt.Errorf(t.GetStatus())
+				s.Err = errors.New(t.GetStatus())
 			}
 			return s, nil
 		}

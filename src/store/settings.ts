@@ -1,11 +1,18 @@
+import { createSignal } from "solid-js"
+import { resolveFilenameOverflow } from "~/utils/filename-preferences"
 import { ext, recordToArray, strToRegExp } from "~/utils"
 
 const settings: Record<string, string> = {}
+const [siteFilenameOverflow, setSiteFilenameOverflow] = createSignal(
+  resolveFilenameOverflow("inherit", "ellipsis"),
+)
+export { siteFilenameOverflow }
 
 export const setSettings = (items: Record<string, string>) => {
   Object.keys(items).forEach((key) => {
     settings[key] = items[key]
   })
+  setSiteFilenameOverflow(resolveFilenameOverflow("inherit", settings["default_filename_overflow"]))
   const version = settings["version"] || "Unknown"
   console.log(
     `%c OpenList %c ${version} %c https://github.com/OpenListTeam/OpenList`,

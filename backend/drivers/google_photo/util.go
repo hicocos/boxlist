@@ -1,6 +1,7 @@
 package google_photo
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -32,7 +33,7 @@ func (d *GooglePhoto) refreshToken() error {
 		return err
 	}
 	if e.Error != "" {
-		return fmt.Errorf(e.Error)
+		return errors.New(e.Error)
 	}
 	d.AccessToken = resp.AccessToken
 	return nil

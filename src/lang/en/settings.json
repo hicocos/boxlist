@@ -14,6 +14,12 @@
   "customize_head": "Customize head",
   "decompress_download_task_threads_num": "Decompress download task threads num",
   "decompress_upload_task_threads_num": "Decompress upload task threads num",
+  "default_filename_overflow": "Default filename overflow behavior",
+  "default_filename_overflows": {
+    "ellipsis": "Ellipsis",
+    "scrollable": "Scrollable",
+    "multi_line": "Multiple lines"
+  },
   "default_page_size": "Default page size",
   "external_previews": "External previews",
   "favicon": "Favicon",
@@ -125,6 +131,8 @@
   "sso_client_id": "SSO client id",
   "sso_client_secret": "SSO client secret",
   "sso_compatibility_mode": "SSO compatibility mode",
+  "sso_postmessage_origin": "SSO frontend origin",
+  "sso_postmessage_origin-tips": "Origin receiving SSO popup results, e.g. https://files.example.com. No path; leave empty for same-origin deployment.",
   "sso_default_dir": "SSO default dir",
   "sso_default_permission": "SSO default permission",
   "sso_endpoint_name": "SSO endpoint name",

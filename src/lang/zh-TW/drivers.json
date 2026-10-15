@@ -297,6 +297,8 @@
       "default": "默認"
     },
     "api_url_address": "API 地址",
+    "callback_concurrency": "回呼下載並行數",
+    "callback_concurrency-tips": "同一阿里雲使用者共用的最大代理下載並行數",
     "client_id": "客户端 ID",
     "client_id-tips": "如果你沒有，請留空",
     "client_secret": "客户端密鑰",
@@ -854,6 +856,8 @@
     "directory_size": "目錄大小",
     "directory_size-tips": "這可能會影響主機的性能",
     "mkdir_perm": "創建文件夾權限",
+    "pdf_thumbnail": "PDF 縮圖",
+    "pdf_thumbnail-tips": "使用 macOS Quick Look 產生 PDF 首頁縮圖",
     "recycle_bin_path": "回收站路徑",
     "recycle_bin_path-tips": "回收站的路徑，如果空或保留“永久刪除”則永久刪除",
     "root_folder_path": "根文件夾路徑",
@@ -1016,6 +1020,8 @@
     "url": "URL"
   },
   "PikPak": {
+    "skip_verification": "略過人機驗證",
+    "skip_verification-tips": "忽略驗證碼介面傳回的人機驗證連結；啟用可能觸發 PikPak 風控",
     "captcha_token": "驗證碼",
     "device_id": "設備 ID",
     "disable_media_link": "禁用媒體鏈接",

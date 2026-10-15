@@ -7,17 +7,6 @@ export function splitFileName(name: string, directory = false) {
   }
 }
 
-/** A fixed trailing fragment plus a flexing prefix gives CSS middle ellipsis. */
-export function filenameParts(name: string, directory = false) {
-  const { stem, extension } = splitFileName(name, directory)
-  const points = Array.from(stem)
-  const tailLength = points.length > 20 ? 8 : 0
-  return {
-    start: tailLength ? points.slice(0, -tailLength).join("") : stem,
-    end: (tailLength ? points.slice(-tailLength).join("") : "") + extension,
-  }
-}
-
 export function changedNameParts(before: string, after: string) {
   const a = Array.from(before),
     b = Array.from(after)

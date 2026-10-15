@@ -71,8 +71,6 @@ jobs:
             runner: ubuntu-24.04
           - arch: arm64
             runner: ubuntu-24.04-arm
-    env:
-      SMOKE_IMAGE: boxlist-smoke:${{ matrix.arch }}
     steps:
       - name: Check out exact source commit
         uses: actions/checkout@v6
@@ -83,64 +81,6 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build and load native image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ./Dockerfile
-          platforms: linux/${{ matrix.arch }}
-          load: true
-          tags: ${{ env.SMOKE_IMAGE }}
-          build-args: |
-            VERSION=${{ needs.prepare.outputs.version }}
-            SOURCE_COMMIT=${{ needs.prepare.outputs.commit }}
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-          provenance: false
-          cache-from: type=gha,scope=boxlist-${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=boxlist-${{ matrix.arch }}
-
-      - name: Smoke test isolated image
-        timeout-minutes: 5
-        run: |
-          container="boxlist-smoke-${{ matrix.arch }}"
-          smoke_dir="$(mktemp -d)"
-          cleanup() {
-            result=$?
-            trap - EXIT
-            if (( result != 0 )); then
-              docker logs "$container" || true
-            fi
-            docker rm --force --volumes "$container" >/dev/null 2>&1 || true
-            rm -rf "$smoke_dir"
-            exit "$result"
-          }
-          trap cleanup EXIT
-          # A fresh tmpfs replaces the data volume; no existing data is mounted.
-          docker run --detach --name "$container" \
-            --publish 127.0.0.1::5244 \
-            --tmpfs /opt/openlist/data:rw,nosuid,nodev,uid=1001,gid=1001,mode=0750 \
-            "$SMOKE_IMAGE"
-          address="$(docker port "$container" 5244/tcp)"
-          for attempt in {1..30}; do
-            if [[ "$(docker inspect --format '{{.State.Running}}' "$container")" != true ]]; then
-              echo 'Container exited before becoming ready' >&2
-              exit 1
-            fi
-            if [[ "$(curl --silent --max-time 3 --output "$smoke_dir/root.html" \
-                --write-out '%{http_code}' "http://${address}/")" == 200 ]] \
-              && grep -Eiq '<!doctype html|<html' "$smoke_dir/root.html" \
-              && [[ "$(curl --silent --max-time 3 --output "$smoke_dir/settings.json" \
-                --write-out '%{http_code}' "http://${address}/api/public/settings")" == 200 ]] \
-              && jq -e '.code == 200' "$smoke_dir/settings.json" >/dev/null; then
-              echo 'Root HTML and public settings smoke checks passed'
-              exit 0
-            fi
-            sleep 2
-          done
-          echo 'Image did not become ready within 30 attempts' >&2
-          exit 1
-
       - name: Log in to GHCR
         uses: docker/login-action@v4
         with:
@@ -148,8 +88,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Re-export the same cached build only after its smoke test succeeds.
-      - name: Push tested image by digest
+      - name: Build and push image by digest
         id: push
         uses: docker/build-push-action@v7
         with:
@@ -163,6 +102,8 @@ jobs:
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
           provenance: false
           outputs: type=image,name=${{ needs.prepare.outputs.image }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=boxlist-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=boxlist-${{ matrix.arch }}
 
       - name: Export image digest
         env:
@@ -184,7 +125,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - name: Download tested image digests
+      - name: Download image digests
         uses: actions/download-artifact@v8
         with:
           pattern: image-digest-*

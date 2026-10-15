@@ -15,7 +15,7 @@ import {
   checkboxOpen,
   getMainColor,
   getSettingBool,
-  local,
+  getFilenameOverflow,
   OrderBy,
   selectObj,
 } from "~/store"
@@ -60,7 +60,6 @@ export const ListItem = (props: { obj: StoreObj; index: number }) => {
     restoreSelectionCache,
     handleItemClick,
   } = useSelectWithMouse()
-  const filenameStyle = () => local["list_item_filename_overflow"]
   return (
     <Show when={isVisible(props.obj)}>
       <Motion.div
@@ -152,8 +151,7 @@ export const ListItem = (props: { obj: StoreObj; index: number }) => {
             />
             <FileName
               name={props.obj.name}
-              directory={props.obj.is_dir}
-              mode={filenameStyle()}
+              mode={getFilenameOverflow()}
             />
           </HStack>
           <Show

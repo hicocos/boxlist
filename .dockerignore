@@ -46,6 +46,12 @@ node_modules
 
 # Documentation and local acceptance tooling are not build inputs.
 /tests
+**/*_test.go
+**/testdata/
+**/.r2-smoke/
+**/*_smoke.py
+**/*.test.mjs
+**/RECOVERY.md
 /doc
 **/RESEARCH.md
 /*.py

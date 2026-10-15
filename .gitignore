@@ -42,6 +42,12 @@ dist/
 
 # Local acceptance scripts, harnesses, screenshots and generated samples
 /tests/
+**/*_test.go
+**/testdata/
+**/.r2-smoke/
+**/*_smoke.py
+**/*.test.mjs
+**/RECOVERY.md
 /*_verify.py
 /verify_*.py
 /*_live_flow.py

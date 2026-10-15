@@ -26,7 +26,7 @@ import {
 import { Dynamic } from "solid-js/web"
 import {
   getMainColor,
-  local,
+  getFilenameOverflow,
   me,
   OrderBy,
   password,
@@ -68,6 +68,7 @@ import { SiteDownloadIcon } from "~/components/SiteIcon"
 import { Operations } from "~/pages/home/toolbar/operations"
 import "solid-contextmenu/dist/style.css"
 import { useReducedMotion } from "~/hooks/useReducedMotion"
+import { FileName } from "../folder/FileName"
 
 const download = (url: string) => {
   window.open(url, "_blank")
@@ -87,9 +88,9 @@ const ListItem = (props: ListItemProps) => {
   const reducedMotion = useReducedMotion()
   const { show } = useContextMenu({ id: 2 })
   const { isMouseSupported } = useSelectWithMouse()
-  const filenameStyle = () => local["list_item_filename_overflow"]
   return (
     <Motion.div
+      class="ux-file-row"
       initial={
         reducedMotion() ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.95 }
       }
@@ -139,25 +140,10 @@ const ListItem = (props: ListItemProps) => {
             as={getIconByObj(props.obj)}
             mr="$1"
           />
-          <Text
-            class="name"
-            css={{
-              wordBreak: "break-all",
-              whiteSpace: filenameStyle() === "multi_line" ? "unset" : "nowrap",
-              "overflow-x":
-                filenameStyle() === "scrollable" ? "auto" : "hidden",
-              textOverflow:
-                filenameStyle() === "ellipsis" ? "ellipsis" : "unset",
-              "scrollbar-width": "none", // firefox
-              "&::-webkit-scrollbar": {
-                // webkit
-                display: "none",
-              },
-            }}
-            title={props.obj.name}
-          >
-            {props.obj.name}
-          </Text>
+          <FileName
+            name={props.obj.name}
+            mode={getFilenameOverflow()}
+          />
         </HStack>
         <Text class="size" w={cols[1].w} textAlign={cols[1].textAlign as any}>
           {getFileSize(props.obj.size)}

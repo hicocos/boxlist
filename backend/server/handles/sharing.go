@@ -55,7 +55,7 @@ func SharingGet(c *gin.Context, req *FsGetReq) {
 			HashInfoStr: obj.GetHash().String(),
 			HashInfo:    obj.GetHash().Export(),
 			Sign:        "",
-			Type:        utils.GetFileType(obj.GetName()),
+			Type:        utils.GetObjType(obj.GetName(), obj.IsDir()),
 			Thumb:       thumb,
 			Derivatives: views[obj.GetName()],
 		},

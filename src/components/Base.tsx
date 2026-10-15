@@ -52,6 +52,12 @@ export const Error = (props: {
         px="$4"
         py="$6"
         bgColor={useColorModeValue("white", "$neutral3")()}
+        css={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "$4",
+        }}
       >
         <Heading
           css={{

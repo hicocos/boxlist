@@ -1,0 +1,18 @@
+{
+  "setup_to": "初始化",
+  "title": "初始化 BoxList",
+  "username-tips": "管理员用户名",
+  "password-tips": "设置管理员密码",
+  "confirm_password-tips": "确认密码",
+  "site_title-tips": "站点名称",
+  "setup": "初始化",
+  "failed": "初始化失败",
+  "password_mismatch": "两次输入的密码不一致",
+  "password_too_short": "密码至少需要 4 个字符",
+  "creating_account": "正在创建管理员账号…",
+  "done_title": "初始化完成",
+  "done_subtitle": "BoxList 已准备就绪。",
+  "done_username": "管理员用户名",
+  "done_go_login": "前往登录",
+  "done_go_home": "打开首页"
+}

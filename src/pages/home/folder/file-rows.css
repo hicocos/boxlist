@@ -12,38 +12,29 @@
   flex-shrink: 0;
 }
 .ux-filename {
-  display: flex;
+  display: block;
+  flex: 1 1 auto;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
   text-align: start;
 }
-.ux-filename-start {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.ux-filename-end {
-  flex-shrink: 0;
-  max-width: 55%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 .ux-filename-lines {
-  display: block;
+  text-overflow: clip;
   white-space: normal;
   overflow-wrap: anywhere;
 }
 .ux-filename-scroll {
-  display: block;
+  text-overflow: clip;
   overflow-x: auto;
   scrollbar-width: thin;
 }
 .ux-file-row > :is(.grid-item, .image-item) > .ux-filename {
   width: 100%;
   min-height: 44px;
-  align-items: center;
+  line-height: 44px;
   font-size: 0.875rem;
 }
 .ux-sort-button:focus-visible,

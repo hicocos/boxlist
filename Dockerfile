@@ -1,13 +1,13 @@
 # syntax=docker/dockerfile:1.7
 # Integrated edition: build custom frontend + native Go backend, one runtime process.
 ARG NODE_IMAGE=node:24.21.0-bookworm-slim
-ARG GO_IMAGE=golang:1.27.0-bookworm
+ARG GO_IMAGE=golang:1.27.1-bookworm
 ARG RUNTIME_IMAGE=debian:bookworm-slim
 FROM ${NODE_IMAGE} AS frontend
 WORKDIR /src
 ENV HUSKY=0
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/* \
-    && npm install --global pnpm@11.24.0
+    && npm install --global pnpm@11.28.3
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY patches/ ./patches/
 RUN pnpm install --frozen-lockfile
@@ -26,13 +26,13 @@ COPY backend/ ./
 # Never fetch another frontend or run upstream build.sh: embed THIS repository's UI.
 RUN rm -rf public/dist
 COPY --from=frontend /src/dist/ ./public/dist/
-ARG VERSION=boxlist-v1.1
+ARG VERSION=boxlist-v1.2
 ARG SOURCE_COMMIT=unknown
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
     go build -trimpath -tags=jsoniter -ldflags="-s -w -X github.com/OpenListTeam/OpenList/v4/internal/conf.Version=${VERSION} -X github.com/OpenListTeam/OpenList/v4/internal/conf.WebVersion=${VERSION} -X github.com/OpenListTeam/OpenList/v4/internal/conf.GitCommit=${SOURCE_COMMIT}" -o /out/openlist .
 
 FROM ${RUNTIME_IMAGE} AS runtime
-ARG VERSION=boxlist-v1.1
+ARG VERSION=boxlist-v1.2
 ARG SOURCE_COMMIT=unknown
 LABEL org.opencontainers.image.title="boxlist" \
       org.opencontainers.image.source="https://github.com/hicocos/boxlist" \

@@ -52,9 +52,9 @@ export const initialLocalSettings: LocalSetting[] = [
   },
   {
     key: "list_item_filename_overflow",
-    default: "ellipsis",
+    default: "inherit",
     type: "select",
-    options: ["ellipsis", "scrollable", "multi_line"],
+    options: ["inherit", "ellipsis", "scrollable", "multi_line"],
     group: "appearance",
   },
   {

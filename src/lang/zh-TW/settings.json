@@ -14,6 +14,12 @@
   "customize_head": "自訂頁首",
   "decompress_download_task_threads_num": "解壓下載任務執行緒數",
   "decompress_upload_task_threads_num": "解壓上傳任務執行緒數",
+  "default_filename_overflow": "檔名過長預設策略",
+  "default_filename_overflows": {
+    "ellipsis": "省略號",
+    "scrollable": "捲動顯示",
+    "multi_line": "多行顯示"
+  },
   "default_page_size": "預設每頁數量",
   "external_previews": "外部預覽",
   "favicon": "網站圖示",
@@ -125,6 +131,8 @@
   "sso_client_id": "SSO 用户端 ID",
   "sso_client_secret": "SSO 用户端密鑰",
   "sso_compatibility_mode": "SSO 相容模式",
+  "sso_postmessage_origin": "SSO 前端來源",
+  "sso_postmessage_origin-tips": "接收 SSO 彈出視窗結果的前端 origin，例如 https://files.example.com，不含路徑；同源部署留空。",
   "sso_default_dir": "SSO 預設根路徑",
   "sso_default_permission": "SSO 預設權限",
   "sso_endpoint_name": "SSO 端點名稱",

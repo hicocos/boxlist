@@ -2,6 +2,7 @@ package pikpak
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -127,7 +128,7 @@ func (p *PikPak) Status(task *tool.DownloadTask) (*tool.Status, error) {
 				s.TotalBytes = 0
 			}
 			if t.Phase == "PHASE_TYPE_ERROR" {
-				s.Err = fmt.Errorf(t.Message)
+				s.Err = errors.New(t.Message)
 			}
 			return s, nil
 		}

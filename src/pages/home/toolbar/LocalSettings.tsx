@@ -41,6 +41,8 @@ import { SwitchLanguage } from "~/components"
 import { useT } from "~/hooks"
 import {
   initialLocalSettings,
+  filenamePreference,
+  siteFilenameOverflow,
   local,
   type LocalSetting,
   type LocalSettingGroup,
@@ -103,6 +105,7 @@ function LocalSettingEdit(props: LocalSetting) {
     )
   }
   const disabled = () => props.key === "open_item_on_checkbox" && isMobile
+  const filenameSetting = props.key === "list_item_filename_overflow"
   const hint = () => {
     if (props.type === "number")
       return uxText(
@@ -111,6 +114,12 @@ function LocalSettingEdit(props: LocalSetting) {
         `範圍：${props.min}–${props.max} px；失焦或按 Enter 儲存。`,
       )
     switch (props.key) {
+      case "list_item_filename_overflow":
+        return uxText(
+          "仅当前浏览器生效；游客与各登录账号分别保存。跟随站点时，刷新或重新进入后采用站点新默认值。",
+          "Only in this browser; guests and signed-in accounts have separate choices. Follow site picks up a new default on refresh or next visit.",
+          "僅目前瀏覽器生效；訪客與各登入帳號分別儲存。跟隨站點時，重新整理或再次進入後採用站點新預設值。",
+        )
       case "global_default_layout":
         return uxText(
           "用于没有单独保存视图的目录。",
@@ -170,7 +179,7 @@ function LocalSettingEdit(props: LocalSetting) {
         <Match when={props.type === "select"}>
           <Select
             id={id}
-            value={local[props.key]}
+            value={filenameSetting ? filenamePreference().value : local[props.key]}
             disabled={disabled()}
             onChange={(value) => setLocal(props.key, value)}
           >
@@ -189,7 +198,13 @@ function LocalSettingEdit(props: LocalSetting) {
                   {(item) => (
                     <SelectOption value={item}>
                       <SelectOptionText>
-                        {t(`home.local_settings.${props.key}_options.${item}`)}
+                        {filenameSetting && item === "inherit"
+                          ? uxText(
+                              `跟随站点设置（当前：${t(`home.local_settings.${props.key}_options.${siteFilenameOverflow()}`)}）`,
+                              `Follow site (currently: ${t(`home.local_settings.${props.key}_options.${siteFilenameOverflow()}`)})`,
+                              `跟隨站點設定（目前：${t(`home.local_settings.${props.key}_options.${siteFilenameOverflow()}`)}）`,
+                            )
+                          : t(`home.local_settings.${props.key}_options.${item}`)}
                       </SelectOptionText>
                       <SelectOptionIndicator />
                     </SelectOption>
