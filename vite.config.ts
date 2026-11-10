@@ -33,6 +33,21 @@ function fixLegacyPolyfillDataSrc(): Plugin {
 }
 
 export default defineConfig({
+  // Host scripts can reassign window.self. Bind free self references to the real
+  // global in both dependency prebundling and production (including workers).
+  define: {
+    self: "globalThis",
+  },
+  // Vite 8's dependency optimizer does not inherit top-level define entries.
+  optimizeDeps: {
+    rolldownOptions: {
+      transform: {
+        define: {
+          self: "globalThis",
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "~": path.resolve(__dirname, "src"),

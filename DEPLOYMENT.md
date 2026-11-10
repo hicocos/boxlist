@@ -137,6 +137,10 @@ docker compose -f compose.yaml -f compose.build.yaml up -d --build
 
 后续管理和更新继续使用相同的两个 `-f` 参数。工具链与依赖版本以 `Dockerfile`、`package.json`、`backend/go.mod` 为准。
 
+本地前端开发使用 `VITE_API_URL=/ pnpm dev`，默认代理到 `http://localhost:5244`。视频依赖通过构建配置将全局 `self` 引用绑定到 `globalThis`，开发预构建和生产构建均需保留该设置，避免页面脚本改写 `window.self` 后出现 `userAgent` 读取错误。修改此配置后重启开发服务并刷新页面；部署实例需重新构建、更新前端产物。
+
+自行托管前端产物时，将 `dist/` 只读挂载到容器，并将配置文件的 `dist_dir` 设为容器内对应路径。更新产物后重启服务，使首页重新加载；挂载目录及文件必须允许容器 UID 1001 读取。
+
 ## 使用提示
 
 - 预览图生成与限制见 [预览图使用说明](doc/thumb-operations.md)，对象存储配置见 [S3 / R2 说明](doc/derivative-s3.md)。
