@@ -259,45 +259,57 @@ func (m *Manager) claimWorkLocked() (*claimedWork, bool) {
 		}
 	}
 	var jobs []Job
-	e := m.db.WithContext(m.ctx).Where("state IN ?", runnableStates).Order("updated_at, id").Limit(32).Find(&jobs).Error
-	if e != nil || len(jobs) == 0 {
-		if e != nil {
-			workerStateError("list_jobs", 0, 0, e)
-		}
-		return nil, false
-	}
 	var job Job
 	var item Item
-	found := false
-	for _, j := range jobs {
-		item = Item{}
-		q := m.db.WithContext(m.ctx).Where("job_id = ? AND state IN ? AND (state = ? OR next_attempt <= ?)", j.ID, []string{"queued", "retry_wait"}, "queued", time.Now())
-		if scanActive {
-			q = q.Where("kind <> ?", "directory") // Only one global remote scan.
+	var e error
+	for {
+		q := m.db.WithContext(m.ctx).Where("state IN ?", runnableStates)
+		if len(jobs) > 0 {
+			// Finalizing jobs changes the result set, so an offset would skip work.
+			last := jobs[len(jobs)-1]
+			q = q.Where("updated_at > ? OR (updated_at = ? AND id > ?)", last.UpdatedAt, last.UpdatedAt, last.ID)
 		}
-		if len(liveIDs) > 0 {
-			q = q.Where("id NOT IN ?", liveIDs)
-		}
-		order := "kind DESC, id"
-		if m.fileTurn {
-			order = "kind ASC, id"
-		}
-		er := q.Order(order).First(&item).Error
-		if er == nil {
-			job = j
-			found = true
-			break
-		}
-		if errors.Is(er, gorm.ErrRecordNotFound) {
-			er = m.finalize(j)
-		}
-		if er != nil {
-			workerStateError("select_or_finalize", j.ID, 0, er)
+		e = q.Order("updated_at, id").Limit(32).Find(&jobs).Error
+		if e != nil || len(jobs) == 0 {
+			if e != nil {
+				workerStateError("list_jobs", 0, 0, e)
+			}
 			return nil, false
 		}
-	}
-	if !found {
-		return nil, false
+		found := false
+		for _, j := range jobs {
+			item = Item{}
+			q := m.db.WithContext(m.ctx).Where("job_id = ? AND state IN ? AND (state = ? OR next_attempt <= ?)", j.ID, []string{"queued", "retry_wait"}, "queued", time.Now())
+			if scanActive {
+				q = q.Where("kind <> ?", "directory") // Only one global remote scan.
+			}
+			if len(liveIDs) > 0 {
+				q = q.Where("id NOT IN ?", liveIDs)
+			}
+			order := "kind DESC, id"
+			if m.fileTurn {
+				order = "kind ASC, id"
+			}
+			er := q.Order(order).First(&item).Error
+			if er == nil {
+				job = j
+				found = true
+				break
+			}
+			if errors.Is(er, gorm.ErrRecordNotFound) {
+				er = m.finalize(j)
+			}
+			if er != nil {
+				workerStateError("select_or_finalize", j.ID, 0, er)
+				return nil, false
+			}
+		}
+		if found {
+			break
+		}
+		if len(jobs) < 32 {
+			return nil, false
+		}
 	}
 	if item.Kind == "file" {
 		reason := ""

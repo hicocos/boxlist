@@ -39,8 +39,8 @@ export const ImageItem = (props: { obj: StoreObj; index: number }) => {
     >
       <Motion.div
         class="ux-file-row"
-        initial={{ opacity: reduced() ? 1 : 0, scale: reduced() ? 1 : 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
+        initial={{ opacity: reduced() ? 1 : 0 }}
+        animate={{ opacity: 1 }}
         transition={{ duration: reduced() ? 0 : 0.2 }}
         style={{
           "flex-grow": 1,
@@ -55,7 +55,7 @@ export const ImageItem = (props: { obj: StoreObj; index: number }) => {
           p="$1"
           spacing="$1"
           rounded="$lg"
-          transition="all 0.3s"
+          transition="background-color 0.2s, box-shadow 0.2s, border-color 0.2s"
           border="2px solid transparent"
           _hover={{
             border: `2px solid ${getMainColor()}`,

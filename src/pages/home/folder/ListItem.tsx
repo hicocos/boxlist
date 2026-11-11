@@ -64,8 +64,8 @@ export const ListItem = (props: { obj: StoreObj; index: number }) => {
     <Show when={isVisible(props.obj)}>
       <Motion.div
         class="ux-file-row"
-        initial={{ opacity: reduced() ? 1 : 0, scale: reduced() ? 1 : 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
+        initial={{ opacity: reduced() ? 1 : 0 }}
+        animate={{ opacity: 1 }}
         transition={{ duration: reduced() ? 0 : 0.2 }}
         style={{
           width: "100%",
@@ -79,9 +79,8 @@ export const ListItem = (props: { obj: StoreObj; index: number }) => {
           w="$full"
           p="$2"
           rounded="$lg"
-          transition="all 0.3s"
+          transition="background-color 0.2s, box-shadow 0.2s"
           _hover={{
-            transform: "scale(1.01)",
             bgColor: hoverColor(),
           }}
           as={LinkWithPush}

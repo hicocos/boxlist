@@ -418,15 +418,15 @@ func (s *Session) finishAttempt(win *Window, err error) {
 	}
 	s.prevCRCs, s.prevSet = crcs, set
 	switch {
-	case err == nil:
-		s.state = StateCompleted
-		s.err = nil
-		s.setStoragePct(100)
 	case s.state != StateReceiving:
 		// Abort/expiry already labeled this attempt; keep that state.
 		if s.err == nil {
 			s.err = err
 		}
+	case err == nil:
+		s.state = StateCompleted
+		s.err = nil
+		s.setStoragePct(100)
 	case isPermanentPutError(err):
 		s.state = StateFailedPermanent
 		s.err = err
@@ -466,6 +466,11 @@ func (m *Manager) Chunk(user *model.User, id string, idx int, body io.Reader) (S
 	s.touch()
 
 	s.mu.Lock()
+	if idx < 0 || idx >= s.Total {
+		snap := s.snapshotLocked()
+		s.mu.Unlock()
+		return snap, fmt.Errorf("chunk index %d out of range [0,%d)", idx, s.Total)
+	}
 	switch s.state {
 	case StateReceiving:
 	case StateFailedRetriable:
@@ -489,14 +494,22 @@ func (m *Manager) Chunk(user *model.User, id string, idx int, body io.Reader) (S
 		return snap, fmt.Errorf("session is %s: %w", s.state, s.err)
 	}
 	win := s.win
-	var prevCRC uint32
-	hasPrev := false
+	var expectedCRC *uint32
 	if idx < len(s.prevSet) && s.prevSet[idx] {
-		prevCRC, hasPrev = s.prevCRCs[idx], true
+		crc := s.prevCRCs[idx]
+		expectedCRC = &crc
 	}
 	s.mu.Unlock()
 
-	crc, err := win.WriteChunk(idx, body)
+	_, err = win.writeChunk(idx, body, expectedCRC)
+	if errors.Is(err, errChunkChanged) {
+		s.mu.Lock()
+		s.state = StateFailedPermanent
+		s.err = err
+		s.killAttemptLocked()
+		s.mu.Unlock()
+		return s.Snapshot(), err
+	}
 	if err != nil {
 		// A closed window means the pipeline ended while this chunk was in
 		// flight — rapid upload makes this the NORMAL case: the driver
@@ -521,15 +534,6 @@ func (m *Manager) Chunk(user *model.User, id string, idx int, body io.Reader) (S
 			return snap, nil
 		}
 		return snap, err
-	}
-	if hasPrev && crc != prevCRC {
-		err := fmt.Errorf("chunk %d content changed between attempts, aborting", idx)
-		s.mu.Lock()
-		s.state = StateFailedPermanent
-		s.err = err
-		s.killAttemptLocked()
-		s.mu.Unlock()
-		return s.Snapshot(), err
 	}
 	return s.Snapshot(), nil
 }

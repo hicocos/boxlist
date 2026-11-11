@@ -50,16 +50,16 @@ func rangesMIMESize(ranges []http_range.Range, contentType string, contentSize i
 	return encSize, nil
 }
 
-// GetRangedHttpReader some http server doesn't support "Range" header,
-// so this function read readCloser with whole data, skip offset, then return ReaderCloser.
+// GetRangedHttpReader skips offset when the source does not support Range.
+// It takes ownership of readCloser, closing it if the skip fails.
 func GetRangedHttpReader(readCloser io.ReadCloser, offset, length int64) (io.ReadCloser, error) {
 
 	if offset > 100*1024*1024 {
 		log.Warnf("offset is more than 100MB, if loading data from internet, high-latency and wasting of bandwidth is expected")
 	}
 
-	if _, err := utils.CopyWithBuffer(io.Discard, io.LimitReader(readCloser, offset)); err != nil {
-		return nil, err
+	if _, err := utils.CopyWithBufferN(io.Discard, readCloser, offset); err != nil {
+		return nil, closeWithError(err, readCloser)
 	}
 
 	// return an io.ReadCloser that is limited to `length` bytes.

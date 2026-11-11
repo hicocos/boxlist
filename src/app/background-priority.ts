@@ -45,7 +45,7 @@ export const mountBackgroundPriority = (layer: HTMLDivElement) => {
     const image = new Image()
     image.className = "home-background-image"
     image.alt = ""
-    image.decoding = "auto"
+    image.decoding = "async"
     // Send only the real site origin to cross-origin image allowlists. The
     // app's global same-origin referrer policy otherwise omits it entirely.
     image.referrerPolicy = "strict-origin-when-cross-origin"
@@ -53,19 +53,25 @@ export const mountBackgroundPriority = (layer: HTMLDivElement) => {
     image.fetchPriority = "low"
     image.draggable = false
     layer.dataset.backgroundState = "loading"
-    image.onload = () => {
-      if (disposed || revision !== generation || !image.naturalWidth) return
-      layer.dataset.backgroundState = "ready"
-    }
-    image.onerror = () => {
+    const failed = () => {
       if (disposed || revision !== generation) return
-      // Remove the broken-image indicator; don't substitute a colored panel.
-      image.remove()
+      // Keep the last decoded wallpaper if its replacement cannot be loaded.
       layer.dataset.backgroundState = "error"
     }
-    // Mount immediately and let the browser schedule decoding/painting. No
-    // offscreen decode gate, transition or old-image retention on URL changes.
-    layer.replaceChildren(image)
+    image.onload = async () => {
+      try {
+        await image.decode()
+      } catch {
+        failed()
+        return
+      }
+      if (disposed || revision !== generation) return
+      // Decode offscreen, then swap atomically: neither progressive loading
+      // nor a URL change should expose an empty or partially decoded image.
+      layer.replaceChildren(image)
+      layer.dataset.backgroundState = "ready"
+    }
+    image.onerror = failed
     image.src = url
   }
   const update = () => {
@@ -82,7 +88,11 @@ export const mountBackgroundPriority = (layer: HTMLDivElement) => {
       for (const { element } of saved) set(element, "background-image", "none")
       set(layer, "background-image", "none")
       set(layer, "display", "block")
-      if (window.__openlistPrimaryReady && requestedUrl !== configuredBackground) loadImage(configuredBackground)
+      if (
+        window.__openlistPrimaryReady &&
+        requestedUrl !== configuredBackground
+      )
+        loadImage(configuredBackground)
     } else {
       release()
       set(layer, "display", "none")

@@ -24,6 +24,7 @@ var (
 	ErrClosed = errors.New("multipart upload window closed")
 	// ErrChunkInFlight means another request is uploading the same chunk right now.
 	ErrChunkInFlight = errors.New("chunk is being uploaded by another request")
+	errChunkChanged  = errors.New("chunk content changed between attempts")
 	// ErrOutOfWindow means the chunk is still too far ahead of the consumption
 	// frontier after waiting WindowWaitTimeout; the client should back off and
 	// resend it later (flow control, not a failure).
@@ -138,6 +139,11 @@ func (w *Window) frontier() int {
 // WriteChunk reads exactly the chunk payload from r into the ring and returns its CRC32 (IEEE).
 // Re-sending an already buffered or consumed chunk succeeds immediately without touching data.
 func (w *Window) WriteChunk(idx int, r io.Reader) (uint32, error) {
+	return w.writeChunk(idx, r, nil)
+}
+
+// A retry must match its previous CRC before the slot becomes readable.
+func (w *Window) writeChunk(idx int, r io.Reader, expectedCRC *uint32) (uint32, error) {
 	w.mu.Lock()
 	if w.err != nil {
 		w.mu.Unlock()
@@ -218,6 +224,11 @@ func (w *Window) WriteChunk(idx int, r io.Reader) (uint32, error) {
 		err = fmt.Errorf("incomplete chunk %d: got %d of %d bytes: %w", idx, n, length, err)
 	}
 
+	crc := h.Sum32()
+	if err == nil && expectedCRC != nil && crc != *expectedCRC {
+		err = fmt.Errorf("chunk %d: %w, aborting", idx, errChunkChanged)
+	}
+
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.slotState[slot] != slotFilling || w.slotChunk[slot] != idx {
@@ -233,10 +244,11 @@ func (w *Window) WriteChunk(idx int, r io.Reader) (uint32, error) {
 	if err != nil {
 		w.slotState[slot] = slotFree
 		w.slotChunk[slot] = -1
+		w.cond.Broadcast()
 		return 0, err
 	}
 	w.slotState[slot] = slotReady
-	w.crcs[idx] = h.Sum32()
+	w.crcs[idx] = crc
 	w.crcSet[idx] = true
 	w.cond.Broadcast()
 	return w.crcs[idx], nil

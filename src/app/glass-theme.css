@@ -226,7 +226,6 @@ html.openlist-glass-home :is(.list-item, .grid-item, .image-item) {
   background-color: transparent !important;
   box-shadow: none;
   transition:
-    transform 0.2s ease,
     background-color 0.3s ease,
     box-shadow 0.3s ease !important;
 }
@@ -273,18 +272,6 @@ html.openlist-glass-home :is(.list-item, .grid-item, .image-item).selected {
 html.openlist-glass-home .viselect-selection-area {
   background-color: rgba(var(--glass-accent), 0.15) !important;
   border-color: rgba(var(--glass-accent), 0.65) !important;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  html.openlist-glass-home .list-item:hover {
-    transform: translateX(4px) !important;
-  }
-
-  html.openlist-glass-home .grid-item:hover {
-    transform: translateY(-2px) !important;
-  }
-
-  /* Only the item under the pointer reacts; the listing surface stays still. */
 }
 
 /* Links keep the supplied lavender palette; file labels remain neutral. */
@@ -473,6 +460,7 @@ html.openlist-glass-home
     .nav-link,
     .list-item,
     .grid-item,
+    .image-item,
     .hope-input,
     .hope-textarea,
     .hope-select__trigger,
@@ -486,6 +474,11 @@ html.openlist-glass-home
   ):focus-visible {
   outline: 2px solid rgb(var(--glass-accent)) !important;
   outline-offset: 2px;
+}
+
+html.openlist-glass-home .ux-file-row
+  > :is(.list-item, .grid-item, .image-item):focus-visible {
+  outline-offset: -2px;
 }
 
 /* Markdown/readme and text previews share the parent glass, never an extra
@@ -610,10 +603,6 @@ html.openlist-glass-home ::-webkit-scrollbar-thumb:hover {
     --glass-blur-max: 14px;
   }
 
-  html.openlist-glass-home :is(.list-item, .grid-item):hover {
-    transform: none !important;
-  }
-
   html.openlist-glass-home .hope-modal__content {
     max-width: calc(100vw - 16px);
   }
@@ -659,9 +648,5 @@ html.openlist-glass-home ::-webkit-scrollbar-thumb:hover {
       .directory-gallery-entry
     ) {
     transition: none !important;
-  }
-
-  html.openlist-glass-home :is(.list-item, .grid-item):hover {
-    transform: none !important;
   }
 }

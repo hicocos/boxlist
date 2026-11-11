@@ -74,6 +74,15 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request, name string, modTime time
 		contentType = contentTypes[0]
 	}
 
+	if r.Method == http.MethodHead {
+		w.Header().Set("Accept-Ranges", "bytes")
+		if w.Header().Get("Content-Encoding") == "" {
+			w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+		}
+		w.WriteHeader(http.StatusOK)
+		return nil
+	}
+
 	// handle Content-Range header.
 	sendSize := size
 	var sendContent io.ReadCloser
@@ -182,24 +191,22 @@ func ServeHTTP(w http.ResponseWriter, r *http.Request, name string, modTime time
 
 	w.WriteHeader(code)
 
-	if r.Method != "HEAD" {
-		written, err := utils.CopyWithBufferN(w, sendContent, sendSize)
-		if err != nil {
-			if errors.Is(context.Cause(ctx), context.Canceled) {
-				return nil
-			}
-			log.Warnf("ServeHttp error. err: %s ", err)
-			if written != sendSize {
-				log.Warnf("Maybe size incorrect or reader not giving correct/full data, or connection closed before finish. written bytes: %d ,sendSize:%d, ", written, sendSize)
-			}
-			code = http.StatusInternalServerError
-			var statusCode HttpStatusCodeError
-			if errors.As(err, &statusCode) {
-				code = int(statusCode)
-			}
-			w.WriteHeader(code)
-			return err
+	written, err := utils.CopyWithBufferN(w, sendContent, sendSize)
+	if err != nil {
+		if errors.Is(context.Cause(ctx), context.Canceled) {
+			return nil
 		}
+		log.Warnf("ServeHttp error. err: %s ", err)
+		if written != sendSize {
+			log.Warnf("Maybe size incorrect or reader not giving correct/full data, or connection closed before finish. written bytes: %d ,sendSize:%d, ", written, sendSize)
+		}
+		code = http.StatusInternalServerError
+		var statusCode HttpStatusCodeError
+		if errors.As(err, &statusCode) {
+			code = int(statusCode)
+		}
+		w.WriteHeader(code)
+		return err
 	}
 	return nil
 }
@@ -267,7 +274,6 @@ var unsafeProxyHeaders = map[string]struct{}{
 	"x-forwarded-proto":   {},
 	"x-real-ip":           {},
 }
-
 
 func ProcessHeader(origin, override http.Header) http.Header {
 	result := http.Header{}

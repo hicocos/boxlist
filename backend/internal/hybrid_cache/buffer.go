@@ -3,10 +3,12 @@ package hybrid_cache
 import (
 	"fmt"
 	"io"
+	"sort"
 )
 
 type BufferStore struct {
 	blocks [][]byte
+	ends   []int64
 	size   int64
 }
 
@@ -18,12 +20,14 @@ func (m *BufferStore) Size() int64 {
 func (m *BufferStore) Append(buf []byte) {
 	m.size += int64(len(buf))
 	m.blocks = append(m.blocks, buf)
+	m.ends = append(m.ends, m.size)
 }
 
 func (m *BufferStore) Close() error {
 	if len(m.blocks) > 0 {
 		clear(m.blocks)
 		m.blocks = m.blocks[:0]
+		m.ends = m.ends[:0]
 		m.size = 0
 	}
 	return nil
@@ -37,12 +41,12 @@ func (m *BufferStore) ReadAt(p []byte, off int64) (int, error) {
 		return 0, io.EOF
 	}
 
+	i := sort.Search(len(m.ends), func(i int) bool { return m.ends[i] > off })
+	if i > 0 {
+		off -= m.ends[i-1]
+	}
 	var n int
-	for _, buf := range m.blocks {
-		if off >= int64(len(buf)) {
-			off -= int64(len(buf))
-			continue
-		}
+	for _, buf := range m.blocks[i:] {
 		nn := copy(p[n:], buf[off:])
 		n += nn
 		if n == len(p) {
@@ -62,12 +66,12 @@ func (m *BufferStore) WriteAt(p []byte, off int64) (int, error) {
 		return 0, io.ErrShortWrite
 	}
 
+	i := sort.Search(len(m.ends), func(i int) bool { return m.ends[i] > off })
+	if i > 0 {
+		off -= m.ends[i-1]
+	}
 	var n int
-	for _, b := range m.blocks {
-		if off >= int64(len(b)) {
-			off -= int64(len(b))
-			continue
-		}
+	for _, b := range m.blocks[i:] {
 		nn := copy(b[off:], p[n:])
 		n += nn
 		if n == len(p) {
@@ -88,8 +92,7 @@ func (m *BufferStore) GrowTo(size int64) (err error) {
 			err = fmt.Errorf("recovered in %v", r)
 		}
 	}()
-	m.blocks = append(m.blocks, make([]byte, size-m.size))
-	m.size = size
+	m.Append(make([]byte, size-m.size))
 	return nil
 }
 

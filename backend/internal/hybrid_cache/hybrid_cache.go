@@ -154,6 +154,9 @@ func (hc *HybridCache) ReadAt(p []byte, off int64) (n int, err error) {
 		return n, io.EOF
 	}
 	nn, err := hc.backingStore.ReadAt(p[:min(len(p), int(canRead))], off)
+	if nn < len(p) && err == nil {
+		err = io.EOF
+	}
 	return n + nn, err
 }
 
@@ -184,6 +187,9 @@ func (hc *HybridCache) WriteAt(p []byte, off int64) (n int, err error) {
 		return n, io.ErrShortWrite
 	}
 	nn, err := hc.backingStore.WriteAt(p[:min(len(p), int(canWrite))], off)
+	if nn < len(p) && err == nil {
+		err = io.ErrShortWrite
+	}
 	return n + nn, err
 }
 
@@ -201,6 +207,7 @@ func (hc *HybridCache) CopyFromN(src io.Reader, n int64) (written int64, err err
 		nn, err := utils.CopyWithBufferN(b, src, blockSize)
 		written += nn
 		if nn != blockSize {
+			hc.RewindBySize(uint64(blockSize - nn))
 			return written, err
 		}
 		limit -= nn

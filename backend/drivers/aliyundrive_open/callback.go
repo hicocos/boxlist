@@ -235,7 +235,6 @@ func openCallbackRange(ctx context.Context, url string, size int64, requested ht
 	if response.StatusCode == http.StatusOK {
 		body, rangeErr := anet.GetRangedHttpReader(response.Body, requested.Start, requested.Length)
 		if rangeErr != nil {
-			response.Body.Close()
 			return nil, false, rangeErr
 		}
 		return body, false, nil
