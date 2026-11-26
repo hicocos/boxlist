@@ -14,6 +14,7 @@ import { useRouter, useLink, useT, usePath, getGlobalPage } from "~/hooks"
 import { getPagination, objStore, setShouldKeepState } from "~/store"
 import { ObjType } from "~/types"
 import { convertURL, getPlatform, pathDir } from "~/utils"
+import { uxText } from "~/utils/ux"
 import Artplayer from "artplayer"
 import { SelectWrapper } from "~/components"
 import { BsArrowRight } from "solid-icons/bs"
@@ -248,27 +249,42 @@ export const VideoBox = (props: {
             )
           }}
         </For>
-        <IconButton
-          aria-label="Show all players"
-          variant="ghost"
-          onClick={() => {
-            const newShowAll = !showAll()
-            setShowAll(newShowAll)
-            localStorage.setItem(
-              "video_show_all_players",
-              newShowAll.toString(),
-            )
-          }}
-          icon={
-            <Icon
-              as={BsArrowRight}
-              boxSize="$6"
-              color="accent.500"
-              transform={showAll() ? "rotate(180deg)" : "none"}
-              transition="transform 0.2s"
-            />
+        <Tooltip
+          placement="top"
+          withArrow
+          label={
+            showAll()
+              ? uxText("仅显示当前平台播放器", "Show current platform only", "僅顯示目前平台播放器")
+              : uxText("展开全部外部播放器", "Show all external players", "展開全部外部播放器")
           }
-        />
+        >
+          <IconButton
+            aria-label={
+              showAll()
+                ? uxText("仅显示当前平台播放器", "Show current platform only", "僅顯示目前平台播放器")
+                : uxText("展开全部外部播放器", "Show all external players", "展開全部外部播放器")
+            }
+            variant="ghost"
+            data-glass-cta="secondary"
+            onClick={() => {
+              const newShowAll = !showAll()
+              setShowAll(newShowAll)
+              localStorage.setItem(
+                "video_show_all_players",
+                newShowAll.toString(),
+              )
+            }}
+            icon={
+              <Icon
+                as={BsArrowRight}
+                boxSize="$6"
+                color="accent.500"
+                transform={showAll() ? "rotate(180deg)" : "none"}
+                transition="transform 0.2s"
+              />
+            }
+          />
+        </Tooltip>
       </Flex>
     </VStack>
   )

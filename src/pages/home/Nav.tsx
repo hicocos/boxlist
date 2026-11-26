@@ -4,12 +4,16 @@ import {
   BreadcrumbLink,
   BreadcrumbProps,
   BreadcrumbSeparator,
+  HStack,
+  Icon,
 } from "@hope-ui/solid"
 import { Link } from "@solidjs/router"
 import { createMemo, For, Show } from "solid-js"
+import { FiArrowUp } from "solid-icons/fi"
 import { usePath, useRouter, useT } from "~/hooks"
 import { getSetting, local } from "~/store"
 import { hoverColor, joinBase } from "~/utils"
+import { uxText } from "~/utils/ux"
 import { getDirectoryReturnHref } from "~/store/history"
 
 export const Nav = () => {
@@ -55,75 +59,115 @@ export const Nav = () => {
     }
   })
 
+  const parentPath = createMemo(() => {
+    const list = paths()
+    if (list.length <= 1) return ""
+    return list.slice(0, -1).join("/") || "/"
+  })
+  const parentHref = createMemo(() => {
+    const parent = parentPath()
+    return parent ? getDirectoryReturnHref(parent) : ""
+  })
+
   return (
-    <Breadcrumb
-      {...stickyProps}
+    <HStack
+      {...stickyProps()}
       background="$background"
       class="nav"
       w="$full"
-      css={{
-        ".hope-breadcrumb__list": {
-          flexWrap: "wrap",
-          minWidth: 0,
-          maxWidth: "100%",
-        },
-        ".nav-item": {
-          flexShrink: 0,
-          minWidth: 0,
-          maxWidth: "100%",
-        },
-        ".nav-link": {
-          minWidth: 0,
-          whiteSpace: "normal",
-          overflowWrap: "anywhere",
-          wordBreak: "normal",
-          textOverflow: "clip",
-        },
-        ".nav-separator": { flexShrink: 0 },
-      }}
+      spacing="$1"
+      alignItems="center"
     >
-      <For each={paths()}>
-        {(name, i) => {
-          const isLast = createMemo(() => i() === paths().length - 1)
-          const path = paths()
-            .slice(0, i() + 1)
-            .join("/")
-          const href = () => getDirectoryReturnHref(path || "/")
-          let text = () => name
-          if (!isShare() && text() === "") {
-            text = () => getSetting("home_icon") + t("manage.sidemenu.home")
-          } else if (isShare() && i() === 0) {
-            text = () => getSetting("share_icon") + t("manage.sidemenu.shares")
-          }
-          return (
-            <BreadcrumbItem class="nav-item">
-              <BreadcrumbLink
-                class="nav-link"
-                css={{
-                  overflowWrap: "anywhere",
-                  wordBreak: "normal",
-                }}
-                color="unset"
-                _hover={{ backgroundColor: hoverColor(), color: "unset" }}
-                _active={{ transform: "scale(.95)", transition: "0.1s" }}
-                cursor="pointer"
-                p="$1"
-                rounded="$lg"
-                currentPage={isLast()}
-                as={isLast() ? undefined : Link}
-                href={joinBase(href())}
-                data-restore-history="true"
-                onMouseEnter={() => setPathAs(path)}
-              >
-                {text()}
-              </BreadcrumbLink>
-              <Show when={!isLast()}>
-                <BreadcrumbSeparator class="nav-separator" />
-              </Show>
-            </BreadcrumbItem>
-          )
+      <Show when={parentPath()}>
+        <BreadcrumbLink
+          as={Link}
+          href={joinBase(parentHref())}
+          data-restore-history="true"
+          class="nav-link nav-up"
+          display="inline-flex"
+          alignItems="center"
+          justifyContent="center"
+          flexShrink={0}
+          w="30px"
+          h="30px"
+          rounded="$lg"
+          color="unset"
+          _hover={{ backgroundColor: hoverColor(), color: "unset" }}
+          _active={{ transform: "scale(.94)", transition: "0.1s" }}
+          aria-label={uxText("返回上级目录", "Go to parent folder", "返回上層目錄")}
+          title={uxText("返回上级目录", "Go to parent folder", "返回上層目錄")}
+          onMouseEnter={() => setPathAs(parentPath())}
+        >
+          <Icon as={FiArrowUp} boxSize="16px" aria-hidden="true" />
+        </BreadcrumbLink>
+      </Show>
+      <Breadcrumb
+        flex="1"
+        minW="0"
+        css={{
+          ".hope-breadcrumb__list": {
+            flexWrap: "wrap",
+            minWidth: 0,
+            maxWidth: "100%",
+          },
+          ".nav-item": {
+            flexShrink: 0,
+            minWidth: 0,
+            maxWidth: "100%",
+          },
+          ".nav-link": {
+            minWidth: 0,
+            whiteSpace: "normal",
+            overflowWrap: "anywhere",
+            wordBreak: "normal",
+            textOverflow: "clip",
+          },
+          ".nav-separator": { flexShrink: 0 },
         }}
-      </For>
-    </Breadcrumb>
+      >
+        <For each={paths()}>
+          {(name, i) => {
+            const isLast = createMemo(() => i() === paths().length - 1)
+            const path = paths()
+              .slice(0, i() + 1)
+              .join("/")
+            const href = () => getDirectoryReturnHref(path || "/")
+            let text = () => name
+            if (!isShare() && text() === "") {
+              text = () => getSetting("home_icon") + t("manage.sidemenu.home")
+            } else if (isShare() && i() === 0) {
+              text = () => getSetting("share_icon") + t("manage.sidemenu.shares")
+            }
+            return (
+              <BreadcrumbItem class="nav-item">
+                <BreadcrumbLink
+                  class="nav-link"
+                  css={{
+                    overflowWrap: "anywhere",
+                    wordBreak: "normal",
+                  }}
+                  color="unset"
+                  _hover={{ backgroundColor: hoverColor(), color: "unset" }}
+                  _active={{ transform: "scale(.95)", transition: "0.1s" }}
+                  cursor="pointer"
+                  p="$1"
+                  rounded="$lg"
+                  currentPage={isLast()}
+                  as={isLast() ? undefined : Link}
+                  href={joinBase(href())}
+                  data-restore-history="true"
+                  onMouseEnter={() => setPathAs(path)}
+                >
+                  {text()}
+                </BreadcrumbLink>
+                <Show when={!isLast()}>
+                  <BreadcrumbSeparator class="nav-separator" />
+                </Show>
+              </BreadcrumbItem>
+            )
+          }}
+        </For>
+      </Breadcrumb>
+    </HStack>
   )
 }

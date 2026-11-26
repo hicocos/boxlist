@@ -4,28 +4,30 @@ import APlayer from "aplayer"
 import { Box } from "@hope-ui/solid"
 import { onCleanup, onMount } from "solid-js"
 import { useLink, useRouter, useTitle } from "~/hooks"
-import { getMainColor, getSetting, getSettingBool, objStore } from "~/store"
-import { ObjType, StoreObj } from "~/types"
-import { baseName, fsGet } from "~/utils"
+import { getMainColor, getSetting, getSettingBool, objStore, password } from "~/store"
+import { Obj, ObjType } from "~/types"
+import { baseName, fsGet, fsList, pathDir } from "~/utils"
 
 const Preview = () => {
   const { proxyLink, rawLink, previewPage } = useLink()
-  const { searchParams } = useRouter()
-  let audios = objStore.objs.filter((obj) => obj.type === ObjType.AUDIO)
+  const { searchParams, pathname, isShare } = useRouter()
+  let audios: Obj[] = objStore.objs.filter((obj) => obj.type === ObjType.AUDIO)
+  const needsSiblingLoad =
+    audios.length === 0 && searchParams["from"] !== "search" && !isShare()
   if (audios.length === 0 || searchParams["from"] === "search") {
     audios = [objStore.obj]
   }
   let ap: any
-  const objToAudio = (obj: StoreObj) => {
+  const objToAudio = (obj: Obj, pool: Obj[] = objStore.objs) => {
     let lrc = undefined
-    const lrcObj = objStore.objs.find((o) => {
+    const lrcObj = pool.find((o) => {
       return baseName(o.name) === baseName(obj.name) && o.name.endsWith(".lrc")
     })
     if (lrcObj) {
       lrc = proxyLink(lrcObj, true)
     }
     let cover = undefined
-    const coverObj = objStore.objs.find((o) => {
+    const coverObj = pool.find((o) => {
       return (
         o.type === ObjType.IMAGE &&
         (baseName(o.name).toLowerCase() === baseName(obj.name).toLowerCase() ||
@@ -62,10 +64,15 @@ const Preview = () => {
     return audio
   }
   onMount(() => {
+    let disposed = false
+    onCleanup(() => {
+      disposed = true
+    })
     ap = new APlayer({
       container: document.querySelector("#audio-player"),
       mini: false,
-      autoplay: getSettingBool("audio_autoplay"),
+      // Handle autoplay explicitly below so browser autoplay blocks never raise unhandled rejections.
+      autoplay: false,
       theme: getMainColor(),
       loop: "all",
       order: "list",
@@ -74,7 +81,7 @@ const Preview = () => {
       mutex: true,
       listFolded: false,
       lrcType: objStore.provider === "NeteaseMusic" ? 1 : 3,
-      audio: audios.map(objToAudio),
+      audio: audios.map((o) => objToAudio(o)),
     })
 
     // Apply monkey patch to fix https://github.com/DIYgod/APlayer/issues/283
@@ -96,7 +103,7 @@ const Preview = () => {
           ap.lrc.parsed[i] = undefined
           ap.list.audios[i].lrc = resp.data.raw_url
           ap.lrc.switch(i) // fetch lrc into `parsed`
-          ap.list.audios[i].lrc = ""
+          ap.lrc.audios && (ap.list.audios[i].lrc = "")
           ap.lrc.async = false
         })
       })
@@ -104,6 +111,34 @@ const Preview = () => {
     const curIndex = audios.findIndex((obj) => obj.name === objStore.obj.name)
     if (curIndex !== -1) {
       ap.list.switch(curIndex)
+    }
+    if (getSettingBool("audio_autoplay")) {
+      const playPromise = ap.audio?.play?.()
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch(() => {
+          // Browser blocked unmuted autoplay without user gesture; keep player ready.
+          try {
+            ap.pause()
+          } catch {
+            // Ignore cleanup race.
+          }
+        })
+      }
+    }
+    if (needsSiblingLoad) {
+      const dir = pathDir(pathname())
+      void fsList(dir, password())
+        .then((resp) => {
+          if (disposed || resp.code !== 200) return
+          const pool = resp.data.content || []
+          const siblingAudios = pool.filter(
+            (o) => !o.is_dir && o.type === ObjType.AUDIO && o.name !== objStore.obj.name,
+          )
+          if (siblingAudios.length > 0) {
+            ap.list.add(siblingAudios.map((o) => objToAudio(o, pool)))
+          }
+        })
+        .catch(() => {})
     }
     if ("mediaSession" in navigator) {
       navigator.mediaSession.setActionHandler("seekto", (evt) =>

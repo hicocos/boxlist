@@ -20,7 +20,11 @@ const Manage = () => {
       w="$full"
     >
       <Header />
-      <Flex w="$full" h="calc(100vh - 64px)">
+      <Flex
+        w="$full"
+        h="calc(100vh - 64px)"
+        css={{ height: "calc(100dvh - 64px)" }}
+      >
         <Box
           display={{ "@initial": "none", "@sm": "block" }}
           w="$56"
@@ -45,13 +49,15 @@ const Manage = () => {
           p="$4"
           overflowY="auto"
         >
-          <Routes>
-            <For each={routes}>
-              {(route) => {
-                return <Route path={route.to!} component={route.component} />
-              }}
-            </For>
-          </Routes>
+          <Suspense fallback={<FullLoading />}>
+            <Routes>
+              <For each={routes}>
+                {(route) => {
+                  return <Route path={route.to!} component={route.component} />
+                }}
+              </For>
+            </Routes>
+          </Suspense>
         </Box>
       </Flex>
     </Box>

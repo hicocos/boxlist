@@ -47,19 +47,26 @@ const Role = (props: { role: number }) => {
 const Permissions = (props: { user: User }) => {
   const t = useT()
   const color = (can: boolean) => `$${can ? "success" : "danger"}9`
+  const enabledCount = () =>
+    UserPermissions.filter((_, i) => UserMethods.can(props.user, i)).length
   return (
-    <HStack spacing="$0_5">
-      <For each={UserPermissions}>
-        {(item, i) => (
-          <Tooltip label={t(`users.permissions.${item}`)}>
-            <Box
-              boxSize="$2"
-              rounded="$full"
-              bg={color(UserMethods.can(props.user, i()))}
-            ></Box>
-          </Tooltip>
-        )}
-      </For>
+    <HStack spacing="$1_5" alignItems="center">
+      <Badge colorScheme="neutral" fontSize="$xs" css={{ fontVariantNumeric: "tabular-nums" }}>
+        {enabledCount()}/{UserPermissions.length}
+      </Badge>
+      <HStack spacing="$0_5">
+        <For each={UserPermissions}>
+          {(item, i) => (
+            <Tooltip label={t(`users.permissions.${item}`)}>
+              <Box
+                boxSize="$2"
+                rounded="$full"
+                bg={color(UserMethods.can(props.user, i()))}
+              ></Box>
+            </Tooltip>
+          )}
+        </For>
+      </HStack>
     </HStack>
   )
 }

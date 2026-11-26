@@ -1,4 +1,6 @@
-import { Anchor, Box, List, ListItem, useColorModeValue } from "@hope-ui/solid"
+import { Anchor, Box, Button, HStack, Icon, List, ListItem, useColorModeValue } from "@hope-ui/solid"
+import { FiCheck, FiCopy } from "solid-icons/fi"
+import { uxText } from "~/utils/ux"
 import { createStorageSignal } from "@solid-primitives/storage"
 import { clsx } from "clsx"
 import rehypeRaw from "rehype-raw"
@@ -7,7 +9,9 @@ import rehypeStringify from "rehype-stringify"
 import remarkGfm from "remark-gfm"
 import remarkParse from "remark-parse"
 import remarkRehype from "remark-rehype"
-import { For, Show, createEffect, createMemo, createSignal, on } from "solid-js"
+import { For, Show, createEffect, createMemo, createSignal, on, onCleanup } from "solid-js"
+import { Portal } from "solid-js/web"
+import { useFileToolbarSlot } from "~/pages/home/file/toolbar-slot"
 import { Motion } from "solid-motionone"
 import { unified } from "unified"
 import { useCDN, useParseText, useRouter } from "~/hooks"
@@ -302,6 +306,52 @@ export function Markdown(props: {
   )
 
   const [markdownRef, setMarkdownRef] = createSignal<HTMLDivElement>()
+  const [copied, setCopied] = createSignal(false)
+  const toolbarSlot = useFileToolbarSlot()
+  const showToolbar = () => !isString && !props.readme
+  createEffect(() => {
+    if (!toolbarSlot) return
+    const active = showToolbar() && Boolean(toolbarSlot.mount())
+    toolbarSlot.setHasExtras(active)
+    onCleanup(() => {
+      toolbarSlot.setHasExtras(false)
+    })
+  })
+  const copySource = async () => {
+    const content = text(encoding())
+    if (!content) return
+    try {
+      await navigator.clipboard.writeText(content)
+      setCopied(true)
+      notify.success(uxText("已复制内容", "Copied content", "已複製內容"))
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      notify.error(uxText("复制失败", "Copy failed", "複製失敗"))
+    }
+  }
+  const renderToolbar = () => (
+    <div class="markdown-toolbar">
+      <Button
+        type="button"
+        size="sm"
+        colorScheme="neutral"
+        data-glass-cta="secondary"
+        leftIcon={<Icon as={copied() ? FiCheck : FiCopy} />}
+        onClick={() => void copySource()}
+      >
+        {copied()
+          ? uxText("已复制", "Copied", "已複製")
+          : uxText("复制内容", "Copy", "複製內容")}
+      </Button>
+      <EncodingSelect
+        inline
+        class="markdown-encoding-box"
+        encoding={encoding()}
+        setEncoding={setEncoding}
+        referenceText={props.children}
+      />
+    </div>
+  )
 
   return (
     <Box
@@ -310,13 +360,31 @@ export function Markdown(props: {
       pos="relative"
       w="$full"
     >
+      <Show when={showToolbar()}>
+        <Show
+          when={toolbarSlot?.mount()}
+          fallback={
+            <HStack
+              w="$full"
+              justifyContent="flex-end"
+              alignItems="center"
+              spacing="$2"
+              mb="$2"
+            >
+              {renderToolbar()}
+            </HStack>
+          }
+        >
+          {(mount) => <Portal mount={mount()}>{renderToolbar()}</Portal>}
+        </Show>
+      </Show>
       <Show when={show()}>
         <Box
           class={clsx("markdown-body", props.class)}
           innerHTML={markdownHTML()}
         />
       </Show>
-      <Show when={!isString}>
+      <Show when={!isString && props.readme}>
         <EncodingSelect
           encoding={encoding()}
           setEncoding={setEncoding}

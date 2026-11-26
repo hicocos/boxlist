@@ -1,5 +1,6 @@
 import {
   Box,
+  Button,
   Center,
   createDisclosure,
   Drawer,
@@ -12,15 +13,18 @@ import {
   Heading,
   HStack,
   IconButton,
+  Tooltip,
+  useColorMode,
   useColorModeValue,
 } from "@hope-ui/solid"
 import { TiThMenu } from "solid-icons/ti"
-import { IoExit } from "solid-icons/io"
+import { IoExit, IoHome } from "solid-icons/io"
+import { FiMoon, FiSun } from "solid-icons/fi"
 import { SwitchColorMode, SwitchLanguageWhite } from "~/components"
 import { useFetch, useRouter, useT } from "~/hooks"
 import { SideMenu } from "./SideMenu"
 import { side_menu_items } from "./sidemenu_items"
-import { changeToken, handleResp, notify, r } from "~/utils"
+import { changeToken, handleResp, joinBase, notify, r } from "~/utils"
 import { PResp } from "~/types"
 const { isOpen, onOpen, onClose } = createDisclosure()
 const [logOutReqLoading, logOutReq] = useFetch((): PResp<any> =>
@@ -30,6 +34,8 @@ const [logOutReqLoading, logOutReq] = useFetch((): PResp<any> =>
 const Header = () => {
   const t = useT()
   const { to } = useRouter()
+  const { toggleColorMode } = useColorMode()
+  const themeIcon = useColorModeValue(FiMoon, FiSun)
   const logOut = async () => {
     handleResp(await logOutReq(), () => {
       changeToken()
@@ -71,21 +77,53 @@ const Header = () => {
             {t("manage.title")}
           </Heading>
         </HStack>
-        <HStack spacing="$1">
-          <IconButton
-            aria-label="logout"
-            icon={<IoExit />}
-            loading={logOutReqLoading()}
-            onClick={logOut}
-            size="sm"
-          />
+        <HStack spacing="$2">
+          <Tooltip label={t("manage.sidemenu.home")} withArrow>
+            <Button
+              as="a"
+              href={joinBase("/")}
+              size="sm"
+              variant="subtle"
+              colorScheme="neutral"
+              leftIcon={<IoHome />}
+              aria-label={t("manage.sidemenu.home")}
+            >
+              {t("manage.sidemenu.home")}
+            </Button>
+          </Tooltip>
+          <Tooltip label={t("home.toolbar.toggle_theme")} withArrow>
+            <IconButton
+              aria-label={t("home.toolbar.toggle_theme")}
+              colorScheme="neutral"
+              icon={themeIcon() === FiMoon ? <FiMoon /> : <FiSun />}
+              onClick={toggleColorMode}
+              size="sm"
+            />
+          </Tooltip>
+          <Tooltip label={t("manage.logout_success").replace(/成功|success/i, "").trim() || "Logout"} withArrow>
+            <IconButton
+              aria-label="logout"
+              icon={<IoExit />}
+              loading={logOutReqLoading()}
+              onClick={logOut}
+              size="sm"
+            />
+          </Tooltip>
         </HStack>
       </Flex>
       <Drawer opened={isOpen()} placement="left" onClose={onClose}>
         <DrawerOverlay />
         <DrawerContent>
           <DrawerCloseButton />
-          <DrawerHeader color="$info11">{t("manage.title")}</DrawerHeader>
+          <DrawerHeader
+            class="manage-drawer-header"
+            style={{
+              padding: "16px 52px 12px 16px",
+            }}
+            color="$info11"
+          >
+            {t("manage.title")}
+          </DrawerHeader>
           <DrawerBody>
             <SideMenu items={side_menu_items} />
             <Center>

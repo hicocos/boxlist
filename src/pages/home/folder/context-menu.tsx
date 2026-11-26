@@ -1,10 +1,11 @@
-import { Menu, Item, Submenu } from "solid-contextmenu"
+import { Menu, Item, Submenu, useContextMenu } from "solid-contextmenu"
 import { useCopyLink, useDownload, useLink, useRouter, useT } from "~/hooks"
 import "solid-contextmenu/dist/style.css"
 import { HStack, Icon, Text, useColorMode, Image } from "@hope-ui/solid"
 import { operations } from "../toolbar/operations"
-import { createMemo, For, Show } from "solid-js"
-import { bus, convertURL, notify, torrentParse } from "~/utils"
+import { createMemo, For, onCleanup, onMount, Show } from "solid-js"
+import { bus, convertURL, joinBase, notify, torrentParse } from "~/utils"
+import { uxText } from "~/utils/ux"
 import { ObjType, UserMethods } from "~/types"
 import {
   getSettingBool,
@@ -18,6 +19,7 @@ import {
 import { players } from "../previews/video_box"
 import { getPreviews } from "../previews"
 import { BsPlayCircleFill } from "solid-icons/bs"
+import { FiExternalLink } from "solid-icons/fi"
 import { isArchive } from "~/store/archive"
 import axios from "axios"
 
@@ -47,6 +49,19 @@ export const ContextMenu = () => {
   }
   const { rawLink } = useLink()
   const { isShare, pushHref, to } = useRouter()
+  const { hideAll } = useContextMenu()
+  onMount(() => {
+    const hideMenu = () => hideAll()
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") hideAll()
+    }
+    bus.on("tool", hideMenu)
+    document.addEventListener("keydown", onKeyDown, true)
+    onCleanup(() => {
+      bus.off("tool", hideMenu)
+      document.removeEventListener("keydown", onKeyDown, true)
+    })
+  })
   const openWithPreviews = createMemo(() => {
     const objs = selectedObjs()
     if (objs.length !== 1) return []
@@ -159,6 +174,18 @@ export const ContextMenu = () => {
         <ItemContent name="offline_download_torrent" />
       </Item>
       <Show when={oneChecked()}>
+        <Item
+          onClick={({ props }) => {
+            window.open(joinBase(pushHref(props.name)), "_blank", "noopener,noreferrer")
+          }}
+        >
+          <HStack spacing="$2">
+            <Icon as={FiExternalLink} boxSize="$7" p="$1" color="$info9" />
+            <Text>
+              {uxText("在新标签页打开", "Open in new tab", "在新分頁開啟")}
+            </Text>
+          </HStack>
+        </Item>
         <Item
           onClick={({ props }) => {
             if (props.is_dir) {

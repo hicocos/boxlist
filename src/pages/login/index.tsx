@@ -1,4 +1,5 @@
 import {
+  Box,
   Image,
   Center,
   Flex,
@@ -6,6 +7,7 @@ import {
   Text,
   Input,
   Button,
+  IconButton,
   useColorModeValue,
   HStack,
   VStack,
@@ -30,6 +32,8 @@ import { createStorageSignal } from "@solid-primitives/storage"
 import { getSetting, getSettingBool } from "~/store"
 import { SSOLogin } from "./SSOLogin"
 import { IoFingerPrint } from "solid-icons/io"
+import { FiEye, FiEyeOff } from "solid-icons/fi"
+import { uxText } from "~/utils/ux"
 const supported = () =>
   !!globalThis.PublicKeyCredential?.parseRequestOptionsFromJSON
 
@@ -218,66 +222,104 @@ const Login = () => {
     }
   }
   const [needOpt, setNeedOpt] = createSignal(false)
+  const [showPwd, setShowPwd] = createSignal(false)
   const ldapLoginEnabled = getSettingBool("ldap_login_enabled")
   const ldapLoginTips = getSetting("ldap_login_tips")
   if (ldapLoginEnabled) {
     setUseLdap(true)
   }
 
+  const guestTarget = () => {
+    const raw = decodeURIComponent(searchParams.redirect || base_path || "/")
+    if (raw.startsWith("/@manage") || raw.startsWith("/@login")) {
+      return base_path || "/"
+    }
+    return raw || "/"
+  }
+
   return (
-    <Center zIndex="$docked" w="$full" h="100vh">
+    <Center zIndex="$docked" w="$full" minH="100dvh" p="$4">
       <VStack
+        as="form"
+        onSubmit={(e: SubmitEvent) => {
+          e.preventDefault()
+          void Login()
+        }}
         bgColor={bgColor()}
         rounded="$xl"
-        p="24px"
+        p="28px 24px"
         w={{
-          "@initial": "90%",
-          "@sm": "364px",
+          "@initial": "100%",
+          "@sm": "380px",
         }}
+        maxW="380px"
         spacing="$4"
       >
-        <Flex alignItems="center" justifyContent="space-around">
-          <Image mr="$2" boxSize="$12" src={logo()} />
-          <Heading color="$info9" fontSize="$2xl">
+        <VStack spacing="$2" alignItems="center" w="$full">
+          <Image
+            h="$11"
+            w="auto"
+            maxW="200px"
+            objectFit="contain"
+            src={logo()}
+            alt={getSetting("site_title")}
+          />
+          <Heading color="$info9" fontSize="$xl" textAlign="center">
             {title()}
           </Heading>
-        </Flex>
+        </VStack>
         <Show
           when={!needOpt()}
           fallback={
             <Input
               id="totp"
               name="otp"
+              autocomplete="one-time-code"
+              inputmode="numeric"
               placeholder={t("login.otp-tips")}
               value={opt()}
               onInput={(e) => setOpt(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  Login()
-                }
-              }}
             />
           }
         >
           <Input
             name="username"
+            autocomplete="username"
             placeholder={t("login.username-tips")}
             value={username()}
             onInput={(e) => setUsername(e.currentTarget.value)}
           />
           <Show when={!useauthn()}>
-            <Input
-              name="password"
-              placeholder={t("login.password-tips")}
-              type="password"
-              value={password()}
-              onInput={(e) => setPassword(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  Login()
+            <Box pos="relative" w="$full">
+              <Input
+                name="password"
+                autocomplete="current-password"
+                placeholder={t("login.password-tips")}
+                type={showPwd() ? "text" : "password"}
+                pr="$10"
+                value={password()}
+                onInput={(e) => setPassword(e.currentTarget.value)}
+              />
+              <IconButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                class="login-pwd-toggle"
+                pos="absolute"
+                right="4px"
+                top="50%"
+                transform="translateY(-50%)"
+                minW="32px"
+                h="32px"
+                aria-label={
+                  showPwd()
+                    ? uxText("隐藏密码", "Hide password", "隱藏密碼")
+                    : uxText("显示密码", "Show password", "顯示密碼")
                 }
-              }}
-            />
+                icon={showPwd() ? <FiEyeOff /> : <FiEye />}
+                onClick={() => setShowPwd(!showPwd())}
+              />
+            </Box>
           </Show>
           <Flex
             px="$1"
@@ -303,8 +345,10 @@ const Login = () => {
         <HStack w="$full" spacing="$2">
           <Show when={!useauthn()}>
             <Button
-              colorScheme="primary"
-              w="$full"
+              type="button"
+              colorScheme="neutral"
+              data-glass-cta="secondary"
+              w="40%"
               onClick={() => {
                 if (needOpt()) {
                   setOpt("")
@@ -317,7 +361,13 @@ const Login = () => {
               {t("login.clear")}
             </Button>
           </Show>
-          <Button w="$full" loading={loading()} onClick={Login}>
+          <Button
+            type="submit"
+            colorScheme="info"
+            data-glass-cta="primary"
+            w="$full"
+            loading={loading()}
+          >
             {t("login.login")}
           </Button>
         </HStack>
@@ -331,14 +381,14 @@ const Login = () => {
           </Checkbox>
         </Show>
         <Button
+          type="button"
           w="$full"
-          colorScheme="accent"
+          variant="subtle"
+          colorScheme="neutral"
+          data-glass-cta="secondary"
           onClick={() => {
             changeToken()
-            to(
-              decodeURIComponent(searchParams.redirect || base_path || "/"),
-              true,
-            )
+            to(guestTarget(), true)
           }}
         >
           {t("login.use_guest")}

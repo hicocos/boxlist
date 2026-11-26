@@ -84,6 +84,22 @@
   width: unset;
 }
 
+/* Snappier drawer slide transitions (default 500ms feels sluggish). */
+.hope-drawer-slide-in-top-transition-enter-active,
+.hope-drawer-slide-in-top-transition-exit-active,
+.hope-drawer-slide-in-right-transition-enter-active,
+.hope-drawer-slide-in-right-transition-exit-active,
+.hope-drawer-slide-in-bottom-transition-enter-active,
+.hope-drawer-slide-in-bottom-transition-exit-active,
+.hope-drawer-slide-in-left-transition-enter-active,
+.hope-drawer-slide-in-left-transition-exit-active {
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+.hope-drawer-fade-transition-enter-active,
+.hope-drawer-fade-transition-exit-active {
+  transition: opacity 220ms ease-out !important;
+}
+
 /* Match the JS motion preference even when the optional glass skin is off.
  * Do not cancel Hope portal transitions: their transitionend unmounts them.
  */

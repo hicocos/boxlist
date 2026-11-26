@@ -1,4 +1,5 @@
 import {
+  batch,
   lazy,
   createEffect,
   createMemo,
@@ -8,12 +9,24 @@ import {
   Match,
   Show,
   on,
+  untrack,
+  For,
 } from "solid-js"
-import { layout } from "~/store"
+import {
+  allChecked,
+  checkboxOpen,
+  isIndeterminate,
+  layout,
+  local,
+  objStore,
+  OrderBy,
+  selectAll,
+  selectedMsg,
+  sortObjs,
+} from "~/store"
 import { ContextMenu } from "./context-menu"
 import { Pager } from "./Pager"
-import { useLink, useT } from "~/hooks"
-import { objStore, local } from "~/store"
+import { useLink, useRouter, useT } from "~/hooks"
 import { ObjType } from "~/types"
 import { bus } from "~/utils"
 import lightGallery from "lightgallery"
@@ -24,24 +37,58 @@ import lgFullscreen from "lightgallery/plugins/fullscreen"
 import "lightgallery/css/lightgallery-bundle.css"
 import "./gallery.css"
 import { LightGallery } from "lightgallery/lightgallery"
-import { Search } from "./Search"
 import { Button } from "@hope-ui/solid"
 import { ThumbnailContext } from "~/components/DerivativeThumbnail"
 import { useDirectoryThumbnails } from "./derivative-thumbnails"
 import { createDerivativeMedia, type DerivativeMedia } from "~/utils/derivative-policy"
 import { probeDerivative } from "~/utils/derivatives"
-import { useFolderVisibility } from "./helper"
+import { ItemCheckbox, useFolderVisibility } from "./helper"
+import { GalleryEntry, ReaderEntry } from "../reader-entry"
+import { loadSortState, saveSortState } from "./List"
+import { uxText } from "~/utils/ux"
 
 const ListLayout = lazy(() => import("./List"))
 const GridLayout = lazy(() => import("./Grid"))
 const ImageLayout = lazy(() => import("./Images"))
 
+const sortFields: OrderBy[] = ["name", "size", "modified"]
+
 const Folder = () => {
   const { rawLink } = useLink()
+  const { pathname } = useRouter()
   const thumbnails = useDirectoryThumbnails()
   const isVisible = useFolderVisibility()
   const [refreshing, setRefreshing] = createSignal(false)
   const [refreshError, setRefreshError] = createSignal(false)
+  const [gridOrder, setGridOrder] = createSignal<OrderBy | undefined>()
+  const [gridReverse, setGridReverse] = createSignal(false)
+
+  createEffect(
+    on([pathname, () => objStore.objs.length, layout], ([, length, curLayout]) => {
+      if (curLayout === "list") return
+      const saved = loadSortState(pathname())
+      untrack(() => {
+        if (saved) {
+          setGridOrder(saved.orderBy as OrderBy)
+          setGridReverse(saved.reverse)
+          if (length) sortObjs(saved.orderBy as OrderBy, saved.reverse)
+        } else {
+          setGridOrder(undefined)
+          setGridReverse(false)
+        }
+      })
+    }),
+  )
+
+  const applyGridSort = (field: OrderBy) => {
+    const nextReverse = gridOrder() === field ? !gridReverse() : false
+    batch(() => {
+      setGridOrder(field)
+      setGridReverse(nextReverse)
+    })
+    saveSortState(pathname(), { orderBy: field, reverse: nextReverse })
+    sortObjs(field, nextReverse)
+  }
   const refreshController = new AbortController()
   const refreshVisible = async () => {
     if (refreshing()) return
@@ -136,10 +183,65 @@ const Folder = () => {
   const t = useT()
   return (
     <ThumbnailContext.Provider value={thumbnails}>
-      <Show when={layout() === "grid" || layout() === "image"}><div style={{ width: "100%", display: "flex", "flex-wrap": "wrap", gap: "8px" }}>
-        <Button size="sm" loading={refreshing()} onClick={refreshVisible}>{t("derivatives.refresh_visible")}</Button>
-        <span role="status">{refreshError() ? t("derivatives.refresh_failed") : ""}</span>
-      </div></Show>
+      <Show when={layout() === "grid" || layout() === "image"}>
+        <div class="folder-view-bar" data-selection-ignore>
+          <div class="folder-view-bar-left">
+            <Show when={checkboxOpen()}>
+              <ItemCheckbox
+                aria-label={uxText(
+                  "选择全部可见的已加载项目",
+                  "Select all visible loaded items",
+                  "選取全部可見的已載入項目",
+                )}
+                checked={allChecked()}
+                indeterminate={isIndeterminate()}
+                onChange={(e: any) => {
+                  selectAll(e.target.checked as boolean)
+                }}
+              />
+              <Show when={selectedMsg()}>
+                <span class="folder-view-selected">{selectedMsg()}</span>
+              </Show>
+            </Show>
+            <div class="folder-sort-group" role="group" aria-label={uxText("排序", "Sort", "排序")}>
+              <For each={sortFields}>
+                {(field) => (
+                  <button
+                    type="button"
+                    class="folder-sort-pill"
+                    aria-pressed={gridOrder() === field}
+                    onClick={() => applyGridSort(field)}
+                  >
+                    <span>{t(`home.obj.${field}`)}</span>
+                    <Show when={gridOrder() === field}>
+                      <span aria-hidden="true">{gridReverse() ? "↓" : "↑"}</span>
+                    </Show>
+                  </button>
+                )}
+              </For>
+            </div>
+            <span class="directory-entry-group">
+              <ReaderEntry />
+              <GalleryEntry />
+            </span>
+          </div>
+          <div class="folder-view-bar-right">
+            <Button
+              size="xs"
+              data-glass-cta="secondary"
+              loading={refreshing()}
+              onClick={refreshVisible}
+            >
+              {t("derivatives.refresh_visible")}
+            </Button>
+            <Show when={refreshError()}>
+              <span class="folder-view-error" role="status">
+                {t("derivatives.refresh_failed")}
+              </span>
+            </Show>
+          </div>
+        </div>
+      </Show>
       <Switch>
         <Match when={layout() === "list"}>
           <ListLayout />
@@ -152,7 +254,6 @@ const Folder = () => {
         </Match>
       </Switch>
       <Pager />
-      <Search />
       <ContextMenu />
     </ThumbnailContext.Provider>
   )

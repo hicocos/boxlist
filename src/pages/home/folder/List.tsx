@@ -146,8 +146,11 @@ export const ListTitle = (props: {
           cols[0],
           () => selectedMsg() || t(`home.obj.${cols[0].name}`),
         )}
-        <Show when={props.readerEntry}>
-          <ReaderEntry />
+        <Show when={props.readerEntry && !selectedMsg()}>
+          <span class="directory-entry-group" data-selection-ignore>
+            <ReaderEntry />
+            <GalleryEntry />
+          </span>
         </Show>
       </HStack>
       <HStack
@@ -157,9 +160,6 @@ export const ListTitle = (props: {
         justifyContent="flex-end"
         flexShrink={0}
       >
-        <Show when={props.readerEntry}>
-          <GalleryEntry />
-        </Show>
         {sortButton(cols[1], () => t(`home.obj.${cols[1].name}`))}
       </HStack>
       <HStack

@@ -32,7 +32,12 @@ instance.interceptors.response.use(
   },
   (error) => {
     // response error
-    if (!["/admin/derivatives/backup", "/admin/derivatives/restore"].includes(error.config?.url)) {
+    if (
+      !axios.isCancel(error) &&
+      !["/admin/derivatives/backup", "/admin/derivatives/restore"].includes(
+        error.config?.url,
+      )
+    ) {
       console.error(error) // for debug
     }
     // notificationService.show({

@@ -21,6 +21,7 @@ import {
   RiDocumentFileUploadFill,
 } from "solid-icons/ri"
 import { getFileSize, notify, pathJoin } from "~/utils"
+import { uxText } from "~/utils/ux"
 import { asyncPool } from "~/utils/async_pool"
 import { createStore } from "solid-js/store"
 import { UploadFileProps, StatusBadge } from "./types"
@@ -170,6 +171,31 @@ const Upload = () => {
   }
   return (
     <VStack w="$full" pb="$2" spacing="$2">
+      <HStack
+        w="$full"
+        px="$3"
+        py="$1_5"
+        rounded="$md"
+        bgColor="var(--glass-control-bg, var(--hope-colors-neutral2))"
+        border="1px solid var(--glass-control-border, var(--hope-colors-neutral5))"
+        spacing="$2"
+        fontSize="$xs"
+        color="$neutral11"
+      >
+        <Text flexShrink={0} fontWeight="$semibold">
+          {uxText("目标目录：", "Destination: ", "目標目錄：")}
+        </Text>
+        <Text
+          css={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+          title={pathname()}
+        >
+          {pathname()}
+        </Text>
+      </HStack>
       <Show
         when={!uploading()}
         fallback={
@@ -336,6 +362,15 @@ const Upload = () => {
               <Checkbox
                 checked={!asTaskUnsupported() && uploadConfig.asTask}
                 disabled={asTaskUnsupported()}
+                title={
+                  asTaskUnsupported()
+                    ? uxText(
+                        "分片上传模式暂不支持添加为后台任务",
+                        "Multipart upload handles progress directly and does not use background tasks",
+                        "分片上傳模式暫不支援新增為背景任務",
+                      )
+                    : undefined
+                }
                 onChange={() => {
                   setUploadConfig({ asTask: !uploadConfig.asTask })
                 }}

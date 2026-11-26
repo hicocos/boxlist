@@ -209,7 +209,11 @@
   margin-top: 20px;
 }
 .directory-reader .reader-single-stage {
-  height: calc(100dvh - 260px);
+  height: calc(100dvh - 300px);
+}
+.directory-reader .reader-single-name {
+  padding: 6px 16px 8px;
+  font-size: 13px;
 }
 .directory-reader.is-immersive .reader-chrome,
 .directory-reader.is-immersive .reader-single-tools,
@@ -217,7 +221,7 @@
   display: none;
 }
 .directory-reader.is-immersive .reader-single-stage {
-  height: calc(100dvh - 90px);
+  height: calc(100dvh - 96px);
 }
 .directory-reader.is-immersive .reader-dock {
   width: auto;

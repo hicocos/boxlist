@@ -28,7 +28,7 @@
 .dc-header > div:first-child { min-width:0; }
 .dc-header .dc-muted { margin-top:6px; }
 .dc-eyebrow { font-size:10px; font-weight:650; letter-spacing:1.6px; color:var(--hope-colors-neutral11); margin-bottom:6px; }
-.dc-button, .dc-icon-button, .dc-text-button { display:inline-flex; align-items:center; justify-content:center; gap:7px; border:1px solid var(--hope-colors-neutral7); border-radius:8px; background:var(--hope-colors-neutral1); color:var(--hope-colors-neutral12); cursor:pointer; padding:9px 12px; font-size:13px!important; font-weight:500; line-height:20px; transition:background .15s,border-color .15s; }
+.dc-button, .dc-icon-button, .dc-text-button { display:inline-flex; align-items:center; justify-content:center; gap:7px; border:1px solid var(--hope-colors-neutral7); border-radius:8px; background:var(--hope-colors-neutral1); color:var(--hope-colors-neutral12); cursor:pointer; padding:9px 12px; font-size:13px!important; font-weight:500; line-height:20px; white-space:nowrap; flex-shrink:0; transition:background .15s,border-color .15s; }
 .dc-button:hover:not(:disabled), .dc-icon-button:hover:not(:disabled) { background:var(--hope-colors-neutral3); border-color:var(--hope-colors-neutral8); }
 .dc-icon-button { width:38px; height:38px; padding:9px; flex-shrink:0; }
 .dc-button svg, .dc-icon-button svg, .dc-text-button svg { width:16px; height:16px; flex-shrink:0; }

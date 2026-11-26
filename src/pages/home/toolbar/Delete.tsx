@@ -112,11 +112,13 @@ export const Delete = () => {
             onClick={close}
             disabled={loading()}
             colorScheme="neutral"
+            data-glass-cta="secondary"
           >
             {t("global.cancel")}
           </Button>
           <Button
             colorScheme="danger"
+            data-glass-cta="danger"
             loading={loading()}
             disabled={!valid() || loading()}
             onClick={async () => {

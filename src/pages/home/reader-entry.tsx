@@ -15,8 +15,8 @@ export const GalleryEntry = () => {
       <button
         type="button"
         class="directory-gallery-entry"
-        aria-label={uxText("打开目录图片查看器", "Open directory gallery")}
-        title={uxText("打开目录图片查看器", "Open directory gallery")}
+        aria-label={uxText("打开目录图片查看器", "Open directory gallery", "開啟目錄圖片檢視器")}
+        title={uxText("打开目录图片查看器（画廊）", "Open directory gallery", "開啟目錄圖片檢視器（畫廊）")}
         onClick={(event) => {
           event.preventDefault()
           event.stopPropagation()
@@ -25,12 +25,12 @@ export const GalleryEntry = () => {
         }}
       >
         <svg
-          width="21"
-          height="21"
+          width="16"
+          height="16"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          stroke-width="1.7"
+          stroke-width="1.8"
           stroke-linecap="round"
           stroke-linejoin="round"
           aria-hidden="true"
@@ -39,6 +39,9 @@ export const GalleryEntry = () => {
           <circle cx="8" cy="8" r="1.5" />
           <path d="m21 15-5-5L5 21" />
         </svg>
+        <span class="directory-entry-label">
+          {uxText("画廊", "Gallery", "畫廊")}
+        </span>
       </button>
     </Show>
   )
@@ -52,10 +55,11 @@ export const ReaderEntry = () => {
       <a
         class="directory-reader-entry"
         href={joinBase(href())}
-        aria-label={uxText("阅读目录图片", "Read directory images")}
+        aria-label={uxText("阅读目录图片", "Read directory images", "閱讀目錄圖片")}
         title={uxText(
           "阅读目录图片（漫画连读 / 单张）",
           "Read directory images (continuous / single)",
+          "閱讀目錄圖片（漫畫連讀 / 單張）",
         )}
         onClick={(event) => {
           if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
@@ -66,12 +70,12 @@ export const ReaderEntry = () => {
         }}
       >
         <svg
-          width="21"
-          height="21"
+          width="16"
+          height="16"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          stroke-width="1.7"
+          stroke-width="1.8"
           stroke-linecap="round"
           stroke-linejoin="round"
           aria-hidden="true"
@@ -79,6 +83,9 @@ export const ReaderEntry = () => {
           <path d="M12 5v15M12 5C9 3 5 3 2 4v15c3-1 7-1 10 1 3-2 7-2 10-1V4c-3-1-7-1-10 1Z" />
           <path d="m4 14 2-3 3 4M15 9h4M15 13h4" />
         </svg>
+        <span class="directory-entry-label">
+          {uxText("连读", "Reader", "連讀")}
+        </span>
       </a>
     </Show>
   )

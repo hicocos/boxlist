@@ -8,12 +8,13 @@ import {
   handleRespWithoutAuthAndNotify,
 } from "~/utils"
 import { createStore } from "solid-js/store"
-import { Button, HStack, VStack } from "@hope-ui/solid"
-import { createSignal, Index } from "solid-js"
+import { Badge, Button, HStack, useColorModeValue, VStack } from "@hope-ui/solid"
+import { createSignal, Index, onCleanup, onMount, Show } from "solid-js"
 import { Item } from "./SettingItem"
 import { ResponsiveGrid } from "../common/ResponsiveGrid"
 import { setSettings as renewSettings } from "~/store"
 import { withHeadWriteLock } from "~/utils/head-write-lock"
+import { uxText } from "~/utils/ux"
 
 import {
   homeGlassSettings,
@@ -39,15 +40,17 @@ const CommonSettings = (props: CommonSettingsProps) => {
     r.get(`/admin/setting/list?group=${props.group}`),
   )
   const [settings, setSettings] = createStore<SettingItem[]>([])
+  const [dirty, setDirty] = createSignal(false)
   const refresh = async () => {
     try {
       const resp = await getSettings()
       if (resp.code === 200 && props.group === Group.STYLE) {
         resp.data.push(...(await loadHomeGlassSettings()))
       }
-      handleResp<SettingItem[]>(resp, (data) =>
-        setSettings(editableSettings(data)),
-      )
+      handleResp<SettingItem[]>(resp, (data) => {
+        setSettings(editableSettings(data))
+        setDirty(false)
+      })
     } catch (error) {
       notify.error(String(error))
     }
@@ -105,6 +108,29 @@ const CommonSettings = (props: CommonSettingsProps) => {
     r.post(`/admin/setting/default?group=${props.group}`),
   )
   const [loading, setLoading] = createSignal(false)
+  const barBg = useColorModeValue("rgba(255, 255, 255, 0.92)", "rgba(24, 26, 32, 0.92)")
+  const performSaveClick = async () => {
+    if (saveLoading()) return
+    const resp = await saveSettings()
+    handleResp(resp, async () => {
+      setDirty(false)
+      notify.success(t("global.save_success"))
+      handleRespWithoutAuthAndNotify(
+        (await r.get("/public/settings")) as Resp<Record<string, string>>,
+        renewSettings,
+      )
+    })
+  }
+  onMount(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault()
+        void performSaveClick()
+      }
+    }
+    document.addEventListener("keydown", onKeyDown)
+    onCleanup(() => document.removeEventListener("keydown", onKeyDown))
+  })
   return (
     <VStack w="$full" alignItems="start" spacing="$2">
       <ResponsiveGrid>
@@ -114,6 +140,7 @@ const CommonSettings = (props: CommonSettingsProps) => {
               {...item()}
               onChange={(val) => {
                 setSettings((i) => item().key === i.key, "value", val)
+                setDirty(true)
               }}
               onDelete={async () => {
                 setLoading(true)
@@ -130,30 +157,36 @@ const CommonSettings = (props: CommonSettingsProps) => {
           )}
         </Index>
       </ResponsiveGrid>
-      <HStack spacing="$2">
+      <HStack
+        w="$full"
+        spacing="$2"
+        gap="$2"
+        wrap="wrap"
+        alignItems="center"
+        pos="sticky"
+        bottom="0"
+        py="$3"
+        px="$3"
+        mt="$2"
+        rounded="$lg"
+        bgColor={barBg()}
+        border="1px solid $neutral6"
+        shadow="$sm"
+        css={{ backdropFilter: "blur(8px)" }}
+        zIndex="$docked"
+      >
+        <Button
+          loading={saveLoading()}
+          onClick={() => void performSaveClick()}
+        >
+          {t("global.save")}
+        </Button>
         <Button
           colorScheme="accent"
           onClick={refresh}
           loading={settingsLoading() || loading() || defaultLoading()}
         >
           {t("global.refresh")}
-        </Button>
-        <Button
-          loading={saveLoading()}
-          onClick={async () => {
-            const resp = await saveSettings()
-            handleResp(resp, async () => {
-              notify.success(t("global.save_success"))
-              handleRespWithoutAuthAndNotify(
-                (await r.get("/public/settings")) as Resp<
-                  Record<string, string>
-                >,
-                renewSettings,
-              )
-            })
-          }}
-        >
-          {t("global.save")}
         </Button>
         <Button
           colorScheme="warning"
@@ -166,11 +199,17 @@ const CommonSettings = (props: CommonSettingsProps) => {
                 data.push(...homeGlassSettings())
               }
               setSettings(editableSettings(data))
+              setDirty(true)
             })
           }}
         >
           {t("manage.load_default_setting")}
         </Button>
+        <Show when={dirty()}>
+          <Badge colorScheme="warning" ml="auto">
+            {uxText("有未保存修改 (Ctrl+S 保存)", "Unsaved changes (Ctrl+S)", "有未儲存變更 (Ctrl+S 儲存)")}
+          </Badge>
+        </Show>
       </HStack>
     </VStack>
   )

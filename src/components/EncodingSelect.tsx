@@ -92,6 +92,8 @@ export function EncodingSelect(props: {
   encoding: string
   setEncoding: (encoding: string) => void
   referenceText?: string | ArrayBuffer
+  inline?: boolean
+  class?: string
 }) {
   createEffect(() => {
     const data = props.referenceText
@@ -116,17 +118,23 @@ export function EncodingSelect(props: {
 
   return (
     <Box
-      pos="absolute"
-      right={0}
-      top={0}
-      w="$36"
-      opacity={0.15}
-      _hover={{
-        opacity: 1,
-      }}
-      zIndex="$docked"
+      class={props.class}
+      pos={props.inline ? "static" : "absolute"}
+      right={props.inline ? undefined : 0}
+      top={props.inline ? undefined : 0}
+      w={props.inline ? "104px" : "$36"}
+      opacity={props.inline ? 1 : 0.15}
+      _hover={
+        props.inline
+          ? undefined
+          : {
+              opacity: 1,
+            }
+      }
+      zIndex={props.inline ? undefined : "$docked"}
     >
       <SelectWrapper
+        size={props.inline ? "sm" : undefined}
         options={encodingLabels.map((label) => ({
           label: label.toLocaleUpperCase(),
           value: label,

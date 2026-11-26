@@ -33,12 +33,16 @@ export const Download = (props: { openWith?: boolean }) => {
     <FileInfo>
       <HStack spacing="$2">
         <ButtonGroup colorScheme="accent" attached>
-          <Button onClick={() => copyCurrentRawLink(true)}>
+          <Button
+            data-glass-cta="secondary"
+            onClick={() => copyCurrentRawLink(true)}
+          >
             {t("home.toolbar.copy_link")}
           </Button>
           <Popover opened={pinned() || hover()} motionPreset="none">
             <PopoverTrigger
               as={IconButton}
+              data-glass-cta="secondary"
               icon={<BsQrCode />}
               aria-label="QRCode"
               onClick={() => {
@@ -60,7 +64,12 @@ export const Download = (props: { openWith?: boolean }) => {
             </PopoverContent>
           </Popover>
         </ButtonGroup>
-        <Button as="a" href={objStore.raw_url} target="_blank">
+        <Button
+          as="a"
+          href={objStore.raw_url}
+          target="_blank"
+          data-glass-cta="primary"
+        >
           {t("home.preview.download")}
         </Button>
       </HStack>

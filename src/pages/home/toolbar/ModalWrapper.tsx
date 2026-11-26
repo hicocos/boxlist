@@ -35,7 +35,8 @@ export const ModalWrapper = (props: {
       opened={isOpen()}
       onClose={onClose}
       closeOnOverlayClick={false}
-      closeOnEsc={false}
+      closeOnEsc={true}
+      motionPreset="none"
       size={{
         "@initial": "xs",
         "@md": "md",

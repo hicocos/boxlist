@@ -12,7 +12,7 @@ import { getExternalPreviews, objStore } from "~/store"
 import { FaSolidAngleDown } from "solid-icons/fa"
 import { convertURL } from "~/utils"
 
-export const OpenWith = () => {
+export const OpenWith = (props: { size?: "xs" | "sm" | "md" | "lg" }) => {
   const t = useT()
   const previews = getExternalPreviews(objStore.obj.name)
   const { currentObjLink } = useLink()
@@ -21,6 +21,7 @@ export const OpenWith = () => {
       <Menu>
         <MenuTrigger
           as={Button}
+          size={props.size}
           colorScheme="success"
           rightIcon={<Icon as={FaSolidAngleDown} />}
         >

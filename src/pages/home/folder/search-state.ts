@@ -2,9 +2,11 @@
 export const SEARCH_PAGE_SIZE = 100
 export const SEARCH_TIMEOUT_MS = 30_000
 export type SearchScope = 0 | 1 | 2
+export type SearchRange = "all" | "current"
 export type SearchDraft = {
   keywords: string
   scope: SearchScope
+  range: SearchRange
 }
 export type SearchQuery = Readonly<{
   keywords: string
@@ -42,7 +44,7 @@ export type SearchState = {
 }
 
 export const emptySearchState = (): SearchState => ({
-  draft: { keywords: "", scope: 0 },
+  draft: { keywords: "", scope: 0, range: "all" },
   submitted: null,
   requestedPage: 1,
   result: null,
@@ -63,14 +65,19 @@ export const sameQuery = (a: SearchQuery | null, b: SearchQuery | null) =>
 
 export const queryFromDraft = (
   draft: SearchDraft,
-  _directory?: string,
-): SearchQuery =>
-  Object.freeze({
+  directory?: string,
+): SearchQuery => {
+  const normalizedDir =
+    directory && directory.startsWith("/") && directory !== "/"
+      ? directory.replace(/\/+$/, "")
+      : "/"
+  return Object.freeze({
     keywords: draft.keywords.trim(),
     scope: draft.scope,
-    // The server joins this virtual root to the authenticated user's base_path.
-    parent: "/",
+    // The server joins this virtual path to the authenticated user's base_path.
+    parent: draft.range === "current" ? normalizedDir : "/",
   })
+}
 
 export const canSubmitSearchKey = (
   event: { key: string; isComposing?: boolean; keyCode?: number },
@@ -233,7 +240,10 @@ export const createSearchController = (
       }, timeoutMs)
     })
     active = { abort, stop: release }
-    const committed = Object.freeze({ ...query, parent: "/" })
+    const committed = Object.freeze({
+      ...query,
+      parent: query.parent && query.parent.startsWith("/") ? query.parent : "/",
+    })
     update({
       submitted: committed,
       requestedPage: page,

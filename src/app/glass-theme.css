@@ -21,6 +21,10 @@ html.openlist-glass-home {
   --glass-link: #7950c5;
   --glass-link-hover: #6334b5;
   --glass-field: rgba(255, 255, 255, 0.14);
+  --glass-control-bg: rgba(15, 23, 42, 0.045);
+  --glass-control-bg-hover: rgba(15, 23, 42, 0.075);
+  --glass-control-border: rgba(15, 23, 42, 0.14);
+  --glass-control-border-hover: rgba(var(--glass-accent), 0.45);
   --glass-code: var(--hope-colors-neutral3);
   --glass-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, calc(0.35 * var(--glass-strength))),
@@ -46,6 +50,10 @@ html.openlist-glass-home .hope-ui-dark {
   --glass-muted: #c3c0d2;
   --glass-border: rgba(255, 255, 255, calc(0.16 * var(--glass-strength)));
   --glass-field: rgba(0, 0, 0, 0.18);
+  --glass-control-bg: rgba(255, 255, 255, 0.07);
+  --glass-control-bg-hover: rgba(255, 255, 255, 0.11);
+  --glass-control-border: rgba(255, 255, 255, 0.18);
+  --glass-control-border-hover: rgba(var(--glass-accent), 0.55);
   --glass-code: var(--hope-colors-neutral3);
   --glass-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, calc(0.2 * var(--glass-strength))),
@@ -118,7 +126,7 @@ html.openlist-glass-home ::selection {
  * README cards, the sliding sidebar, and the login card. No build hashes.
  */
 html.openlist-glass-home
-  :is(
+  :where(
     .header,
     .nav,
     .obj-box,
@@ -352,8 +360,9 @@ html.openlist-glass-home
   ) {
   background-color: rgba(
     var(--glass-rgb),
-    clamp(0, calc(0.78 + var(--home-glass-alpha, 0.4) * 0.22), 1)
+    clamp(0, calc(0.92 + var(--home-glass-alpha, 0.4) * 0.08), 1)
   ) !important;
+  border-color: var(--glass-control-border) !important;
 }
 
 /* Hope portals inherit the same palette, including search/local settings. */
@@ -408,12 +417,30 @@ html.openlist-glass-home .hope-popover__arrow {
   background-color: var(--glass-bg) !important;
 }
 
-/* Controls use an inexpensive tint within an already blurred surface. */
+/* Controls use clear, tactile borders and surfaces in both light and dark modes. */
 html.openlist-glass-home
   :is(.hope-input, .hope-textarea, .hope-select__trigger) {
   color: var(--glass-text) !important;
-  background-color: var(--glass-field) !important;
-  border-color: var(--glass-border) !important;
+  background-color: var(--glass-control-bg) !important;
+  border: 1px solid var(--glass-control-border) !important;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+html.openlist-glass-home
+  :is(.hope-input, .hope-textarea, .hope-select__trigger):hover:not(:disabled) {
+  background-color: var(--glass-control-bg-hover) !important;
+  border-color: var(--glass-control-border-hover) !important;
+}
+
+html.openlist-glass-home
+  :is(.hope-input, .hope-textarea, .hope-select__trigger):focus,
+html.openlist-glass-home
+  :is(.hope-input, .hope-textarea, .hope-select__trigger):focus-within {
+  border-color: rgba(var(--glass-accent), 0.75) !important;
+  box-shadow: 0 0 0 2px rgba(var(--glass-accent), 0.16) !important;
 }
 
 html.openlist-glass-home :is(.hope-input, .hope-textarea)::placeholder,
@@ -429,8 +456,8 @@ html.openlist-glass-home
     #root > .hope-center
   )
   :is(.hope-button, .hope-icon-button) {
-  background-color: rgba(var(--glass-accent), 0.2) !important;
-  border-color: rgba(var(--glass-accent), 0.4) !important;
+  background-color: rgba(var(--glass-accent), 0.16) !important;
+  border-color: rgba(var(--glass-accent), 0.34) !important;
 }
 
 html.openlist-glass-home
@@ -441,7 +468,99 @@ html.openlist-glass-home
     #root > .hope-center
   )
   :is(.hope-button, .hope-icon-button):hover:not(:disabled) {
-  background-color: rgba(var(--glass-accent), 0.35) !important;
+  background-color: rgba(var(--glass-accent), 0.28) !important;
+}
+
+/* Preserve clear visual hierarchy for primary, subtle/secondary, and danger actions. */
+html.openlist-glass-home
+  :is(
+    .obj-box,
+    .hope-modal__content,
+    .hope-drawer__content,
+    #root > .hope-center
+  )
+  .hope-button[data-glass-cta="primary"] {
+  color: #fff !important;
+  background-color: rgb(var(--glass-accent)) !important;
+  border-color: rgb(var(--glass-accent)) !important;
+  box-shadow: 0 4px 14px rgba(var(--glass-accent), 0.32);
+}
+
+html.openlist-glass-home
+  :is(
+    .obj-box,
+    .hope-modal__content,
+    .hope-drawer__content,
+    #root > .hope-center
+  )
+  .hope-button[data-glass-cta="primary"]:hover:not(:disabled) {
+  background-color: rgba(var(--glass-accent), 0.9) !important;
+  box-shadow: 0 6px 18px rgba(var(--glass-accent), 0.42);
+}
+
+html.openlist-glass-home
+  :is(
+    .obj-box,
+    .hope-modal__content,
+    .hope-drawer__content,
+    #root > .hope-center
+  )
+  :is(.hope-button, .hope-icon-button)[data-glass-cta="secondary"] {
+  color: var(--glass-text) !important;
+  background-color: var(--glass-control-bg) !important;
+  border: 1px solid var(--glass-control-border) !important;
+}
+
+html.openlist-glass-home
+  :is(
+    .obj-box,
+    .hope-modal__content,
+    .hope-drawer__content,
+    #root > .hope-center
+  )
+  :is(.hope-button, .hope-icon-button)[data-glass-cta="secondary"]:hover:not(:disabled) {
+  background-color: var(--glass-control-bg-hover) !important;
+  border-color: var(--glass-control-border-hover) !important;
+}
+
+html.openlist-glass-home
+  :is(
+    .obj-box,
+    .hope-modal__content,
+    .hope-drawer__content,
+    #root > .hope-center
+  )
+  .hope-button[data-glass-cta="danger"] {
+  color: #fff !important;
+  background-color: #d9383a !important;
+  border-color: #d9383a !important;
+}
+
+html.openlist-glass-home
+  :is(
+    .obj-box,
+    .hope-modal__content,
+    .hope-drawer__content,
+    #root > .hope-center
+  )
+  .hope-button[data-glass-cta="danger"]:hover:not(:disabled) {
+  background-color: #c22e30 !important;
+}
+
+html.openlist-glass-home #root > .hope-center .login-pwd-toggle {
+  background-color: transparent !important;
+  border: 0 !important;
+  color: var(--glass-muted) !important;
+  box-shadow: none !important;
+}
+
+html.openlist-glass-home #root > .hope-center .login-pwd-toggle:hover:not(:disabled) {
+  background-color: var(--glass-control-bg-hover) !important;
+  color: var(--glass-text) !important;
+}
+
+html.openlist-glass-home .hope-checkbox__control:not([data-checked]) {
+  border-color: var(--glass-control-border) !important;
 }
 
 html.openlist-glass-home
@@ -590,7 +709,7 @@ html.openlist-glass-home ::-webkit-scrollbar-thumb:hover {
    * The More/close control remains outside the scrollable actions area.
    */
   html.openlist-glass-home .left-toolbar-in {
-    max-height: calc(40dvh - 44px);
+    max-height: calc(56dvh - 44px);
     overflow-y: auto;
     overscroll-behavior: contain;
   }
@@ -613,12 +732,21 @@ html.openlist-glass-home ::-webkit-scrollbar-thumb:hover {
   }
 
   html.openlist-glass-home .center-toolbar {
-    max-width: calc(100vw - 96px);
+    left: 12px !important;
+    right: 68px !important;
+    transform: none !important;
+    width: auto !important;
+    max-width: none !important;
   }
 
   html.openlist-glass-home .center-toolbar > div > .hope-stack {
     max-width: 100%;
     overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  html.openlist-glass-home .center-toolbar > div > .hope-stack::-webkit-scrollbar {
+    display: none;
   }
 
   html.openlist-glass-home .center-toolbar .toolbar-action {

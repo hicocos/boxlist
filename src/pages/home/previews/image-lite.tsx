@@ -408,6 +408,38 @@ const ImageLite = (props: Props) => {
       if (isViewCurrent()) setOpening(false)
     }
   }
+  onMount(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        gallery ||
+        event.defaultPrevented ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      )
+        return
+      const target = event.target as HTMLElement | null
+      if (
+        target?.isContentEditable ||
+        (target && /INPUT|SELECT|TEXTAREA/.test(target.tagName)) ||
+        document.querySelector('[role="dialog"]')
+      )
+        return
+      if (event.key === "ArrowLeft" && currentIndex() > 0) {
+        event.preventDefault()
+        go(currentIndex() - 1)
+      } else if (
+        event.key === "ArrowRight" &&
+        currentIndex() < images().length - 1
+      ) {
+        event.preventDefault()
+        go(currentIndex() + 1)
+      }
+    }
+    document.addEventListener("keydown", onKeyDown)
+    onCleanup(() => document.removeEventListener("keydown", onKeyDown))
+  })
   onCleanup(() => {
     disposed = true
     viewGeneration++

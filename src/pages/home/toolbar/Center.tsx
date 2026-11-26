@@ -5,12 +5,14 @@ import {
   haveSelected,
   objStore,
   selectAll,
+  selectedObjs,
   State,
   userCan,
 } from "~/store"
 import { CopyLink } from "./CopyLink"
 import { CenterIcon } from "./Icon"
 import { bus } from "~/utils"
+import { uxText } from "~/utils/ux"
 import { Download } from "./Download"
 import { Motion, Presence } from "solid-motionone"
 import { useRouter } from "~/hooks"
@@ -24,6 +26,7 @@ export const Center = () => {
       checkboxOpen() &&
       haveSelected(),
   )
+  const selectedCount = createMemo(() => selectedObjs().length)
   const { isShare } = useRouter()
   return (
     <Presence exitBeforeEnter>
@@ -31,6 +34,7 @@ export const Center = () => {
         <Box
           class="center-toolbar"
           pos="fixed"
+          zIndex="calc($overlay - 1)"
           bottom="max(16px, env(safe-area-inset-bottom, 0px))"
           left="50%"
           w="max-content"
@@ -59,6 +63,13 @@ export const Center = () => {
                 backdropFilter: "blur(8px)",
               }}
             >
+              <span class="center-toolbar-count" aria-live="polite">
+                {uxText(
+                  `已选 ${selectedCount()}`,
+                  `${selectedCount()} selected`,
+                  `已選 ${selectedCount()}`,
+                )}
+              </span>
               <Show when={!isShare() && objStore.write}>
                 <For
                   each={

@@ -65,8 +65,26 @@ export default function Reader() {
   const [fraction, setFraction] = createSignal(0)
   const [command, setCommand] = createSignal(readerCommand(0))
   const [immersive, setImmersive] = createSignal(false)
-  const [width, setWidth] = createSignal("comfortable")
-  const [gap, setGap] = createSignal(0)
+  const [width, setWidth] = createSignal((() => {
+    try {
+      const saved = localStorage.getItem("openlist-reader-width")
+      return saved === "wide" || saved === "full" || saved === "comfortable" ? saved : "comfortable"
+    } catch { return "comfortable" }
+  })())
+  const [gap, setGap] = createSignal((() => {
+    try {
+      return localStorage.getItem("openlist-reader-gap") === "4" ? 4 : 0
+    } catch { return 0 }
+  })())
+  const changeWidth = (value: string) => {
+    setWidth(value)
+    try { localStorage.setItem("openlist-reader-width", value) } catch { /* optional */ }
+  }
+  const changeGap = (value: number) => {
+    setGap(value)
+    try { localStorage.setItem("openlist-reader-gap", String(value)) } catch { /* optional */ }
+  }
+  const [dismissMissingPreview, setDismissMissingPreview] = createSignal(false)
   const [notice, setNotice] = createSignal("")
   const [fullscreen, setFullscreen] = createSignal(false)
   const collator = new Intl.Collator("zh-CN", {
@@ -353,16 +371,25 @@ export default function Reader() {
           onJump={jump}
           onMode={changeMode}
           onImmersive={setImmersive}
-          onWidth={setWidth}
-          onGap={setGap}
+          onWidth={changeWidth}
+          onGap={changeGap}
           onFullscreen={toggleFullscreen}
           quality={quality()}
           onQuality={changeQuality}
           refreshThumbnail={(name, signal) => statusBatch().refresh(name, signal)}
         />
       </Show>
-      <Show when={quality() === "preview" && !loading() && items()[index()] && !readyDerivative(items()[index()].derivatives?.reader)}>
-        <p class="reader-notice" role="status">{t("derivatives.missing_preview")}</p>
+      <Show when={!dismissMissingPreview() && quality() === "preview" && !loading() && items()[index()] && !readyDerivative(items()[index()].derivatives?.reader)}>
+        <p class="reader-notice" role="status">
+          <span>{t("derivatives.missing_preview")}</span>
+          <button
+            type="button"
+            aria-label="关闭提示"
+            onClick={() => setDismissMissingPreview(true)}
+          >
+            ×
+          </button>
+        </p>
       </Show>
       <Show when={notice()}>
         <p class="reader-notice" role="status">

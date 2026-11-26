@@ -71,6 +71,27 @@
   padding: 3px 0;
   scrollbar-width: thin;
 }
+.toolbar-divider {
+  width: 22px;
+  height: 1px;
+  margin: 2px auto;
+  flex-shrink: 0;
+  background: var(--glass-control-border, var(--hope-colors-neutral6));
+}
+.center-toolbar-count {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  margin-right: 2px;
+  border-radius: 999px;
+  background: rgba(var(--glass-accent, 24, 144, 255), 0.16);
+  color: var(--glass-link, var(--hope-colors-info11));
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
 .left-toolbar-in .toolbar-action:focus-visible {
   outline-offset: -2px;
 }
@@ -79,16 +100,21 @@
   #root .body {
     padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   }
-  .toolbar-action--right,
+  .toolbar-action--right {
+    width: 42px;
+    min-width: 42px;
+    height: 42px;
+    min-height: 42px;
+  }
   .toolbar-action--center {
-    width: 44px;
-    min-width: 44px;
-    height: 44px;
-    min-height: 44px;
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    min-height: 38px;
   }
   .left-toolbar-box .left-toolbar-in {
     max-height: min(
-      45dvh,
+      56dvh,
       calc(
         100dvh - 132px - env(safe-area-inset-top, 0px) -
           env(safe-area-inset-bottom, 0px)

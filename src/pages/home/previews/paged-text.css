@@ -18,9 +18,47 @@
 }
 .text-page-heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+.text-page-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.text-page-font {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--hope-colors-neutral6);
+  border-radius: 8px;
+  background: var(--hope-colors-neutral2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.text-page-font button {
+  min-width: 30px;
+  min-height: 34px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 6px;
+  font-weight: 600;
+}
+.text-page-font button:hover:not(:disabled) {
+  background: var(--hope-colors-neutral4);
+}
+.text-page-font button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.text-page-font span {
+  padding: 0 6px;
+  color: var(--hope-colors-neutral11);
 }
 /* Keep the shared encoding control in normal flow and readable without hover. */
 .text-page-encoding > div {

@@ -51,6 +51,21 @@ export const Right = () => {
   const isFolder = createMemo(() => objStore.state === State.Folder)
   const { refresh } = usePath()
   const { isShare } = useRouter()
+  const triggerTool = (tool: string) => {
+    bus.emit("tool", tool)
+    if (window.innerWidth <= 640) onClose()
+  }
+  const hasSecondaryTools = createMemo(() => {
+    if (!isFolder() || isShare()) return false
+    return (
+      (objStore.write &&
+        (userCan("move") ||
+          userCan("delete") ||
+          userCan("rename") ||
+          userCan("offline_download"))) ||
+      UserMethods.is_admin(me())
+    )
+  })
   let toolbarBox: HTMLDivElement | undefined
   onMount(() => {
     const outside = (event: PointerEvent) => {
@@ -69,7 +84,7 @@ export const Right = () => {
       ref={toolbarBox}
       class="left-toolbar-box"
       pos="fixed"
-      zIndex="calc($modal - 1)"
+      zIndex="calc($overlay - 1)"
     >
       <Show
         when={isOpen()}
@@ -125,6 +140,32 @@ export const Right = () => {
             role="group"
             aria-label={uxText("文件工具", "File tools", "檔案工具")}
           >
+            {/* Everyday high-frequency tools first so they stay above the fold on mobile. */}
+            <Show
+              when={
+                isFolder() &&
+                !isShare() &&
+                (userCan("write_content") || objStore.write_content_bypass) &&
+                objStore.write
+              }
+            >
+              <RightIcon
+                as={AiOutlineCloudUpload}
+                tips="upload"
+                onClick={() => triggerTool("upload")}
+              />
+              <RightIcon
+                as={operations.mkdir.icon}
+                p="$1_5"
+                tips="mkdir"
+                onClick={() => triggerTool("mkdir")}
+              />
+              <RightIcon
+                as={operations.new_file.icon}
+                tips="new_file"
+                onClick={() => triggerTool("new_file")}
+              />
+            </Show>
             <Show when={isFolder() && !isShare() && !UserMethods.is_guest(me())}>
               <RightIcon
                 class="toolbar-refresh"
@@ -143,105 +184,14 @@ export const Right = () => {
                 }}
               />
             </Show>
-            <Show
-              when={
-                isFolder() &&
-                !isShare() &&
-                (userCan("write_content") || objStore.write_content_bypass) &&
-                objStore.write
-              }
-            >
+            <Show when={UserMethods.is_admin(me())}>
               <RightIcon
-                as={operations.new_file.icon}
-                tips="new_file"
-                onClick={() => {
-                  bus.emit("tool", "new_file")
-                }}
+                class="toolbar-checkbox-toggle"
+                tips="toggle_checkbox"
+                as={TbCheckbox}
+                aria-pressed={checkboxOpen()}
+                onClick={toggleCheckbox}
               />
-              <RightIcon
-                as={operations.mkdir.icon}
-                p="$1_5"
-                tips="mkdir"
-                onClick={() => {
-                  bus.emit("tool", "mkdir")
-                }}
-              />
-            </Show>
-            <Show
-              when={
-                isFolder() && !isShare() && userCan("move") && objStore.write
-              }
-            >
-              <RightIcon
-                as={operations.recursive_move.icon}
-                tips="recursive_move"
-                onClick={() => {
-                  bus.emit("tool", "recursiveMove")
-                }}
-              />
-            </Show>
-            <Show
-              when={
-                isFolder() && !isShare() && userCan("delete") && objStore.write
-              }
-            >
-              <RightIcon
-                as={operations.remove_empty_directory.icon}
-                tips="remove_empty_directory"
-                onClick={() => {
-                  bus.emit("tool", "removeEmptyDirectory")
-                }}
-              />
-            </Show>
-            <Show
-              when={
-                isFolder() && !isShare() && userCan("rename") && objStore.write
-              }
-            >
-              <RightIcon
-                as={operations.batch_rename.icon}
-                tips="batch_rename"
-                onClick={() => {
-                  selectAll(true)
-                  bus.emit("tool", "batchRename")
-                }}
-              />
-            </Show>
-            <Show
-              when={
-                isFolder() &&
-                !isShare() &&
-                (userCan("write_content") || objStore.write_content_bypass) &&
-                objStore.write
-              }
-            >
-              <RightIcon
-                as={AiOutlineCloudUpload}
-                tips="upload"
-                onClick={() => {
-                  bus.emit("tool", "upload")
-                }}
-              />
-            </Show>
-            <Show
-              when={
-                isFolder() &&
-                !isShare() &&
-                userCan("offline_download") &&
-                objStore.write
-              }
-            >
-              <RightIcon
-                as={IoMagnetOutline}
-                pl="0"
-                tips="offline_download"
-                onClick={() => {
-                  bus.emit("tool", "offline_download")
-                }}
-              />
-            </Show>
-            <Show when={isFolder() && !isShare() && UserMethods.is_admin(me())}>
-              <RightIcon as={FiImage} name="generate_derivatives" aria-label={t("derivatives.generate")} aria-haspopup="dialog" onClick={() => bus.emit("tool", "generate_derivatives")} />
             </Show>
             <Show when={isTocVisible()}>
               <RightIcon
@@ -250,15 +200,6 @@ export const Right = () => {
                 onClick={() => {
                   setTocDisabled((disabled) => !disabled)
                 }}
-              />
-            </Show>
-            <Show when={UserMethods.is_admin(me())}>
-              <RightIcon
-                class="toolbar-checkbox-toggle"
-                tips="toggle_checkbox"
-                as={TbCheckbox}
-                aria-pressed={checkboxOpen()}
-                onClick={toggleCheckbox}
               />
             </Show>
             <RightIcon
@@ -277,9 +218,72 @@ export const Right = () => {
                 event: MouseEvent & { currentTarget: HTMLButtonElement },
               ) => {
                 event.currentTarget.focus({ preventScroll: true })
-                bus.emit("tool", "local_settings")
+                triggerTool("local_settings")
               }}
             />
+            <Show when={hasSecondaryTools()}>
+              <div class="toolbar-divider" role="separator" />
+            </Show>
+            <Show
+              when={
+                isFolder() &&
+                !isShare() &&
+                userCan("offline_download") &&
+                objStore.write
+              }
+            >
+              <RightIcon
+                as={IoMagnetOutline}
+                pl="0"
+                tips="offline_download"
+                onClick={() => triggerTool("offline_download")}
+              />
+            </Show>
+            <Show when={isFolder() && !isShare() && UserMethods.is_admin(me())}>
+              <RightIcon
+                as={FiImage}
+                name="generate_derivatives"
+                aria-label={t("derivatives.generate")}
+                aria-haspopup="dialog"
+                onClick={() => triggerTool("generate_derivatives")}
+              />
+            </Show>
+            <Show
+              when={
+                isFolder() && !isShare() && userCan("rename") && objStore.write
+              }
+            >
+              <RightIcon
+                as={operations.batch_rename.icon}
+                tips="batch_rename"
+                onClick={() => {
+                  selectAll(true)
+                  triggerTool("batchRename")
+                }}
+              />
+            </Show>
+            <Show
+              when={
+                isFolder() && !isShare() && userCan("move") && objStore.write
+              }
+            >
+              <RightIcon
+                as={operations.recursive_move.icon}
+                tips="recursive_move"
+                onClick={() => triggerTool("recursiveMove")}
+              />
+            </Show>
+            <Show
+              when={
+                isFolder() && !isShare() && userCan("delete") && objStore.write
+              }
+            >
+              <RightIcon
+                as={operations.remove_empty_directory.icon}
+                tips="remove_empty_directory"
+                onClick={() => triggerTool("removeEmptyDirectory")}
+              />
+            </Show>
           </VStack>
           <RightIcon
             class="toolbar-collapse"

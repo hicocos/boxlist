@@ -25,6 +25,8 @@ import {
   hope,
 } from "@hope-ui/solid"
 import { BsSearch } from "solid-icons/bs"
+import { FiX } from "solid-icons/fi"
+import { useContextMenu } from "solid-contextmenu"
 import {
   createMemo,
   createSignal,
@@ -38,8 +40,8 @@ import {
 import Mark from "mark.js"
 import { FullLoading, LinkWithBase, Paginator } from "~/components"
 import { usePath, useRouter, useT } from "~/hooks"
-import { getMainColor, me, password } from "~/store"
-import { bus, getFileSize, hoverColor, r } from "~/utils"
+import { getMainColor, me, objStore, password, State } from "~/store"
+import { bus, getFileSize, hoverColor, pathDir, r } from "~/utils"
 import { isMac } from "~/utils/compatibility"
 import { getIconByObj } from "~/utils/icon"
 import { uxText } from "~/utils/ux"
@@ -164,7 +166,7 @@ const SearchSession = (props: { directory: string; identity: string }) => {
       const response = await r.post(
         "/fs/search",
         {
-          parent: "/",
+          parent: query.parent,
           keywords: query.keywords,
           scope: query.scope,
           page,
@@ -263,8 +265,10 @@ const SearchSession = (props: { directory: string; identity: string }) => {
   const rememberScroll = () => {
     if (body) controller.setView({ scrollTop: body.scrollTop })
   }
+  const { hideAll: hideContextMenu } = useContextMenu()
   const open = () => {
     if (state().open) return
+    hideContextMenu()
     clearTimeout(focusTimer)
     returnFocus =
       document.activeElement instanceof HTMLElement
@@ -314,6 +318,34 @@ const SearchSession = (props: { directory: string; identity: string }) => {
   const handler = (name: string) => {
     if (name === "search") open()
   }
+  const isSubDir = createMemo(
+    () => props.directory !== "/" && props.directory !== "",
+  )
+  const moveResultFocus = (delta: number) => {
+    if (!body) return false
+    const rows = Array.from(
+      body.querySelectorAll<HTMLElement>("[data-search-path]"),
+    )
+    if (!rows.length) return false
+    const activeIndex = rows.findIndex((row) => row === document.activeElement)
+    if (activeIndex === -1) {
+      if (delta > 0) {
+        rows[0].focus()
+        return true
+      }
+      return false
+    }
+    const nextIndex = activeIndex + delta
+    if (nextIndex < 0) {
+      document.getElementById("search-input")?.focus()
+      return true
+    }
+    if (nextIndex < rows.length) {
+      rows[nextIndex].focus()
+      return true
+    }
+    return false
+  }
   const searchEvent = (event: KeyboardEvent) => {
     if (event.isComposing || composing || event.keyCode === 229) return
     if (
@@ -334,6 +366,18 @@ const SearchSession = (props: { directory: string; identity: string }) => {
       ?.querySelector<HTMLButtonElement>(
         '.hope-select__trigger[aria-expanded="true"]',
       )
+    if (!menu && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+      const target = event.target as HTMLElement | null
+      if (
+        target?.id === "search-input" ||
+        target?.closest?.("[data-search-path]")
+      ) {
+        if (moveResultFocus(event.key === "ArrowDown" ? 1 : -1)) {
+          event.preventDefault()
+          return
+        }
+      }
+    }
     if (event.key === "Escape" && menu) {
       // Hope's focus-trap otherwise deactivates on Escape even while a menu is open.
       event.preventDefault()
@@ -439,35 +483,54 @@ const SearchSession = (props: { directory: string; identity: string }) => {
                   </SelectListbox>
                 </SelectContent>
               </Select>
-              <Input
-                id="search-input"
-                flex="1 1 0%"
-                minW={0}
-                w={0}
-                value={state().draft.keywords}
-                maxLength={512}
-                aria-label={uxText(
-                  "搜索关键词",
-                  "Search keywords",
-                  "搜尋關鍵字",
-                )}
-                autocomplete="off"
-                onInput={(event) =>
-                  controller.setDraft({ keywords: event.currentTarget.value })
-                }
-                onCompositionStart={() => {
-                  composing = true
-                }}
-                onCompositionEnd={() => {
-                  composing = false
-                }}
-                onKeyDown={(event) => {
-                  if (canSubmitSearchKey(event, composing)) {
-                    event.preventDefault()
-                    submit()
+              <div class="search-input-wrap">
+                <Input
+                  id="search-input"
+                  w="$full"
+                  pr={state().draft.keywords ? "$8" : undefined}
+                  value={state().draft.keywords}
+                  maxLength={512}
+                  placeholder={uxText(
+                    "输入文件名关键词，按回车搜索…",
+                    "Type filename keywords, press Enter…",
+                    "輸入檔案名稱關鍵字，按 Enter 搜尋…",
+                  )}
+                  aria-label={uxText(
+                    "搜索关键词",
+                    "Search keywords",
+                    "搜尋關鍵字",
+                  )}
+                  autocomplete="off"
+                  onInput={(event) =>
+                    controller.setDraft({ keywords: event.currentTarget.value })
                   }
-                }}
-              />
+                  onCompositionStart={() => {
+                    composing = true
+                  }}
+                  onCompositionEnd={() => {
+                    composing = false
+                  }}
+                  onKeyDown={(event) => {
+                    if (canSubmitSearchKey(event, composing)) {
+                      event.preventDefault()
+                      submit()
+                    }
+                  }}
+                />
+                <Show when={state().draft.keywords}>
+                  <button
+                    type="button"
+                    class="search-clear-btn"
+                    aria-label={uxText("清空输入", "Clear input", "清空輸入")}
+                    onClick={() => {
+                      controller.setDraft({ keywords: "" })
+                      document.getElementById("search-input")?.focus()
+                    }}
+                  >
+                    <FiX aria-hidden="true" />
+                  </button>
+                </Show>
+              </div>
               <IconButton
                 flexShrink={0}
                 aria-label={t("home.search.search")}
@@ -476,18 +539,67 @@ const SearchSession = (props: { directory: string; identity: string }) => {
                 disabled={!draftQuery().keywords}
               />
             </HStack>
+            <Show when={isSubDir()}>
+              <div class="search-range-bar" role="group" aria-label={uxText("搜索范围", "Search range", "搜尋範圍")}>
+                <button
+                  type="button"
+                  class="search-range-pill"
+                  aria-pressed={state().draft.range === "all"}
+                  onClick={() => {
+                    controller.setDraft({ range: "all" })
+                    if (draftQuery().keywords && state().submitted) submit()
+                  }}
+                >
+                  {uxText("全站目录", "All folders", "全站目錄")}
+                </button>
+                <button
+                  type="button"
+                  class="search-range-pill"
+                  aria-pressed={state().draft.range === "current"}
+                  title={props.directory}
+                  onClick={() => {
+                    controller.setDraft({ range: "current" })
+                    if (draftQuery().keywords && state().submitted) submit()
+                  }}
+                >
+                  {uxText(
+                    `当前目录：${props.directory.split("/").filter(Boolean).pop() || "/"}`,
+                    `This folder: ${props.directory.split("/").filter(Boolean).pop() || "/"}`,
+                    `目前目錄：${props.directory.split("/").filter(Boolean).pop() || "/"}`,
+                  )}
+                </button>
+              </div>
+            </Show>
             <Switch>
               <Match when={loading()}>
                 <FullLoading />
               </Match>
+              <Match when={state().status === "idle"}>
+                <div class="search-idle-hint" role="status">
+                  <Text size="sm" color="$neutral11">
+                    {uxText(
+                      "输入文件名或路径关键词，按 Enter 开始搜索",
+                      "Enter a file or folder name and press Enter to search",
+                      "輸入檔案或資料夾名稱，按 Enter 開始搜尋",
+                    )}
+                  </Text>
+                  <Text size="xs" color="$neutral10">
+                    {isMac ? "⌘K" : "Ctrl+K"}{" "}
+                    {uxText(
+                      "随时打开 · ↑↓ 选择结果 · Esc 关闭",
+                      "open anywhere · ↑↓ navigate · Esc close",
+                      "隨時開啟 · ↑↓ 選擇結果 · Esc 關閉",
+                    )}
+                  </Text>
+                </div>
+              </Match>
               <Match
                 when={
-                  state().status === "idle" ||
-                  (state().status === "success" &&
-                    state().result?.content.length === 0)
+                  state().status === "success" &&
+                  state().result?.content.length === 0
                 }
               >
-                <Text size="2xl" my="$8" role="status">
+                <Text size="lg" my="$6" color="$neutral11" role="status">
                   {t("home.search.no_result")}
                 </Text>
               </Match>
@@ -519,6 +631,28 @@ const SearchSession = (props: { directory: string; identity: string }) => {
               <Button size="sm" onClick={() => void controller.retry()}>
                 {uxText("重试", "Retry", "重試")}
               </Button>
+            </Show>
+            <Show
+              when={
+                state().status === "success" &&
+                (state().result?.total ?? 0) > 0 &&
+                !retained()
+              }
+            >
+              <div class="search-summary" role="status">
+                <span>
+                  {uxText(
+                    `共找到 ${state().result!.total} 项`,
+                    `${state().result!.total} results`,
+                    `共找到 ${state().result!.total} 項`,
+                  )}
+                </span>
+                <Show when={state().result!.query.parent !== "/"}>
+                  <span class="search-summary-path">
+                    {state().result!.query.parent}
+                  </span>
+                </Show>
+              </div>
             </Show>
             <Show when={retained() && state().result!.content.length > 0}>
               <Text
@@ -564,14 +698,17 @@ const SearchSession = (props: { directory: string; identity: string }) => {
 
 const Search = () => {
   const { pathname } = useRouter()
+  const directory = createMemo(() =>
+    objStore.state === State.File ? pathDir(pathname()) : pathname(),
+  )
   const session = createMemo(() =>
-    JSON.stringify([searchAccountKey(me()), pathname()]),
+    JSON.stringify([searchAccountKey(me()), directory()]),
   )
   return (
     <Show when={session()} keyed>
       {(key) => {
-        const [identity, directory] = JSON.parse(key) as [string, string]
-        return <SearchSession identity={identity} directory={directory} />
+        const [identity, dir] = JSON.parse(key) as [string, string]
+        return <SearchSession identity={identity} directory={dir} />
       }}
     </Show>
   )
